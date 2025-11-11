@@ -1,0 +1,155 @@
+<!DOCTYPE html>
+<html lang="en">
+
+  <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="icon" type="image/png" href="https://lampbylit.com/magazine/wp-content/uploads/2020/12/favicon.png">
+    <title>K. Ryan Hartley</title>
+    <!-- Open Graph / Facebook -->
+    <meta property="og:type" content="website">
+    <meta property="og:url" content="https://lampbylit.com/design/">
+    <meta property="og:title" content="K. Ryan Hartley">
+    <meta property="og:description" content="K. Ryan Hartley">
+    <meta property="og:image" content="https://lampbylit.com/design/assets/images/card.png">
+    <meta property="og:image:width" content="1200">
+    <meta property="og:image:height" content="630">
+    <meta property="og:image:type" content="image/png">
+    <!-- Twitter -->
+    <meta name="twitter:card" content="summary_large_image">
+    <meta name="twitter:title" content="K. Ryan Hartley">
+    <meta name="twitter:description" content="K. Ryan Hartley">
+    <meta name="twitter:image" content="https://lampbylit.com/design/assets/images/card.png">
+    <meta name="twitter:image:alt" content="K. Ryan Hartley - Professional Design Portfolio">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Courier+Prime:wght@400;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="./assets/css/normalize-5.0.0.min.css">
+    <link rel="stylesheet" href="./style.css">
+  </head>
+    
+  <body>
+    <div class="video-background">
+      <div class="video-foreground">
+        <div id="youtube-background"></div>
+      </div>
+    </div>
+    <div class="error-message" id="errorMessage"></div>
+    <div class="fallback-bg" id="fallbackBg"></div>
+
+    <div class="audio-enable">
+      <button class="no-audio-button" id="noAudioBtn">NO AUDIO</button>
+      <button class="enable-button" id="enableBtn">AUDIO</button>
+    </div>
+
+    <div class="preloader" id="preloader">
+      <span id="counter">[000]</span>
+    </div>
+
+    <canvas id="canvas"></canvas>
+
+    <div class="text-element logo" id="logo">
+             @@@@@@@                                                                               
+          @@@@@@@@@@@@@                                                                            
+          @@@@@     @@@@                                                                            
+          @@@@@@   @@@@@                                                                            
+            @@@@@@@@@              @@@@@@@                                                          
+        @@@@@@@@@@@@           @@@@@@@@@@@@@@@@    @@@@@@@@@@@@@   @@@@@@                           
+      @@@@@@    @@@@@@ @@@@@  @@@@@@     @@@@@@    @@@@@@@@@@@@@@@@@@@@@@@@@   @@@@@@@@@@@@@@@      
+      @@@@@@      @@@@@@@@@   @@@@@       @@@@@    @@@@@     @@@@@     @@@@@   @@@@@@@@@@@@@@@@@    
+      @@@@@@@@@@@@@@@@@@@@    @@@@@@     @@@@@@   @@@@@      @@@@@     @@@@@   @@@@@       @@@@@    
+         @@@@@@@@@@   @@@@@@   @@@@@@@@@@@@@@@@   @@@@@     @@@@@@     @@@@@   @@@@@@      @@@@@    
+                                   @@@@  @@@@@    @@@@@     @@@@@@    @@@@@@   @@@@@@@@@@@@@@@@@     
+                                                                               @@@@@@@@@@@@@@       
+                                                                               @@@@@                
+                                                                              @@@@@                 
+                                                                              @@@@@        by /lit/
+    </div>
+
+    <p class="text-element description">YOU HAVE REACHED THE PROFESSIONAL <br>
+DESIGN PORTFOLIO OF K. RYAN HARTLEY.</p>
+    <button class="audio-toggle" id="audioToggle">AUDIO OFF</button>
+    <button class="mobile-menu-toggle" id="mobileMenuToggle">☰</button>
+
+    <nav class="text-element nav-links">
+      <a href="#">MAGAZINE</a>
+      <a href="#">INTERNET</a>
+      <a href="cover-samples.html" target="_blank">DESIGNS</a>
+      <a href="https://www.amazon.com/Chicken-World-K-R-Hartley/dp/B0CHGBLHXH" target="_blank" rel="noopener noreferrer">GIFT SHOP</a>
+    </nav>
+
+    <div class="mobile-menu" id="mobileMenu">
+      <a href="#">MAGAZINE</a>
+      <a href="#">INTERNET</a>
+      <a href="cover-samples.html" target="_blank">DESIGNS</a>
+      <a href="https://www.amazon.com/Chicken-World-K-R-Hartley/dp/B0CHGBLHXH" target="_blank" rel="noopener noreferrer">GIFT SHOP</a>
+    </div>
+
+    <div class="text-element footer">
+      <p><a href="https://lampbylit.com" target="_blank">LAMPBYLIT.COM</a></p>
+    </div>
+
+    <p class="text-element division">
+      K. Ryan Hartley © 2025<br>
+      Music: <a href="https://disasterpeace.com/" target="_blank" rel="noopener noreferrer">Disasterpeace</a>
+    </p>
+
+    <p class="text-element signal contact-toggle">CONTACT</p>
+    <div class="contact-info" id="contactInfo">
+      <p>ADMIN@LAMPBYLIT.COM</p>
+      <p>HARTLEY PO BOX 99900 FM 890 098</p>
+      <p>RPO TERMINAL PD NANAIMO BC V9R0K1 CANADA</p>
+      <p>+1 6042620610</p>
+    </div>
+
+    <div class="magazine-content" id="magazineContent">
+      <h2 class="magazine-title"><a href="https://LampByLit.com/magazine" target="_blank">https://LampByLit.com/magazine</a></h2>
+      <div class="magazine-description">
+        <p>&amp;amp Magazine was founded in 2020 and sourced all of its interior content from anonymous users of 4chan's /lit/ and /p/ boards, including several works of original journalism. As the Editor-in-Chief, I am entirely responsible for the magazine's production, design, release and all stylistic choices, though a handful of esteemed guest editors and countless artists have contributed myriad works of varying quality.</p>
+      </div>
+    </div>
+
+    <div class="magazine-content" id="internetContent">
+      <h2 class="magazine-title internet-title">WEB APPLICATIONS</h2>
+      <div class="magazine-description">
+        <p><strong><a href="https://book-cover-previewer.up.railway.app/" target="_blank">3D Book Cover Previewer</a></strong><br>
+        <a href="https://book-cover-previewer.up.railway.app/" target="_blank">https://book-cover-previewer.up.railway.app/</a></p>
+        <p><strong><a href="https://lampbylit-leaderboard.up.railway.app/" target="_blank">Amazon Paperback Leaderboard</a></strong><br>
+        <a href="https://lampbylit-leaderboard.up.railway.app/" target="_blank">https://lampbylit-leaderboard.up.railway.app/</a></p>
+        <p><strong><a href="https://tco.up.railway.app/" target="_blank">Custom Image Links for X.com</a></strong><br>
+        <a href="https://tco.up.railway.app/" target="_blank">https://tco.up.railway.app/</a></p>
+      </div>
+    </div>
+
+    <div class="text-element central-text">
+      <div class="avatar-name-wrapper">
+        <a href="https://x.com/recapitul8r" target="_blank">
+          <img src="./assets/images/avatar.jpg" alt="K. Ryan Hartley" class="avatar">
+        </a>
+        <h1 class="name"><a href="https://x.com/recapitul8r" target="_blank">K. Ryan Hartley</a></h1>
+      </div>
+      <p class="subtitle">DESIGNER • DEVELOPER • PUBLISHER • AUTHOR • ARTIST • ENGINEER</p>
+    </div>
+
+    <audio id="startClickSound" preload="auto">
+      <source src="./assets/audio/preloader-2s-001.mp3" type="audio/mpeg">
+    </audio>
+
+    <audio id="preloaderSound" preload="auto">
+      <source src="./assets/audio/preloader-3s-002.mp3" type="audio/mpeg">
+    </audio>
+
+    <!-- hoverSound removed to prevent intro sound from playing on menu hover -->
+
+    <audio id="backgroundMusic" loop preload="auto">
+      <source src="./assets/audio/cinematic-02.mp3" type="audio/mpeg">
+    </audio>
+
+    <script src='https://cdn.jsdelivr.net/npm/gsap@3.13.0/dist/gsap.min.js'></script>
+    <script src='https://cdn.jsdelivr.net/npm/gsap@3.13.0/dist/SplitText.min.js'></script>
+    <script src="https://www.youtube.com/iframe_api"></script>
+    <script type="module" src="./script.js"></script>
+  </body>
+  
+</html>

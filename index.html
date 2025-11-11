@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="theme-color" content="#000000">
+    <link rel="manifest" href="/manifest.json">
+    <title>Planes - 3D Art</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div id="canvas-container"></div>
+    <div class="night" id="night-container"></div>
+    
+    <!-- Toggle Button -->
+    <button id="panel-toggle" class="panel-toggle" aria-label="Toggle control panel">CONSOLE</button>
+    
+    <!-- Control Panel -->
+    <div id="control-panel" class="control-panel">
+        <div class="panel-header">
+            <button id="panel-close" class="panel-close" aria-label="Close panel">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M18 6L6 18M6 6l12 12"/>
+                </svg>
+            </button>
+        </div>
+        <div class="panel-content">
+            <!-- Controls will go here -->
+        </div>
+    </div>
+    
+    <script type="module" src="/pillstepper.js"></script>
+    <script type="module" src="/main.js"></script>
+</body>
+</html>
+

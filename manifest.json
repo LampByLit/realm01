@@ -1,0 +1,12 @@
+{
+    "name": "Planes - 3D Art",
+    "short_name": "Planes",
+    "description": "3D web art with stacked horizontal planes",
+    "orientation": "landscape",
+    "display": "standalone",
+    "start_url": "/",
+    "theme_color": "#000000",
+    "background_color": "#000000",
+    "icons": []
+}
+
