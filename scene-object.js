@@ -1,5 +1,6 @@
 // SceneObject - Encapsulates a 3D object with label and leader/laser line
 import * as THREE from 'three';
+import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 
 export class SceneObject {
     constructor(config, scene, camera, renderer, sceneManager) {
@@ -122,6 +123,13 @@ export class SceneObject {
             this.orbElement = null;
             this.crystalElement = null;
             this.cloudElement = null;
+        } else if (config.type === 'gltf') {
+            // GLTF models load asynchronously, so mesh will be null initially
+            this.mesh = null;
+            this.orbElement = null;
+            this.crystalElement = null;
+            this.cloudElement = null;
+            this.loadGLTF(config);
         } else {
             this.mesh = this.createMesh(config);
             this.orbElement = null;
@@ -213,6 +221,15 @@ export class SceneObject {
                 geometry = new THREE.SphereGeometry(0.3, 32, 32);
         }
         
+        // Create Jupiter texture if textureRotation is enabled
+        let jupiterTexture = null;
+        if (config.textureRotation && config.name === 'jupiter') {
+            jupiterTexture = this.createJupiterTexture();
+            // Store rotation speed for animation
+            this.textureRotationSpeed = config.textureRotationSpeed || 0.001;
+            this.textureRotationOffset = 0;
+        }
+        
         // Use MeshPhysicalMaterial if transmission or ior are specified, otherwise MeshStandardMaterial
         const usePhysicalMaterial = (config.transmission !== undefined && config.transmission > 0) || 
                                     (config.ior !== undefined && config.ior !== 1.5);
@@ -226,6 +243,7 @@ export class SceneObject {
                 roughness: config.roughness !== undefined ? config.roughness : 0.6,
                 transmission: config.transmission !== undefined ? config.transmission : 0.0,
                 ior: config.ior !== undefined ? config.ior : 1.5,
+                map: jupiterTexture || null,
             })
             : new THREE.MeshStandardMaterial({
                 color: config.color || 0x8685ef,
@@ -233,9 +251,138 @@ export class SceneObject {
                 emissiveIntensity: config.emissiveIntensity !== undefined ? config.emissiveIntensity : 0.6,
                 metalness: config.metalness !== undefined ? config.metalness : 0.4,
                 roughness: config.roughness !== undefined ? config.roughness : 0.6,
+                map: jupiterTexture || null,
             });
         
-        return new THREE.Mesh(geometry, material);
+        // Store texture reference for rotation
+        if (jupiterTexture) {
+            this.jupiterTexture = jupiterTexture;
+            jupiterTexture.wrapS = THREE.RepeatWrapping;
+            jupiterTexture.wrapT = THREE.ClampToEdgeWrapping;
+        }
+        
+        const mesh = new THREE.Mesh(geometry, material);
+        
+        // Add vertical rings if specified (for Uranus)
+        if (config.verticalRings) {
+            const group = new THREE.Group();
+            group.add(mesh);
+            
+            const ringCount = config.ringCount || 3;
+            const ringRadius = config.ringRadius || (config.radius * 1.5 || 0.45);
+            const ringTube = config.ringTube || 0.02;
+            const ringColor = config.ringColor || 0x88aacc;
+            
+            // Create vertical rings (torus rotated 90 degrees around Z axis)
+            for (let i = 0; i < ringCount; i++) {
+                const ringGeometry = new THREE.TorusGeometry(
+                    ringRadius + (i * ringTube * 2), // Slightly larger radius for each ring
+                    ringTube,
+                    16,
+                    100
+                );
+                const ringMaterial = new THREE.MeshPhysicalMaterial({
+                    color: ringColor,
+                    transparent: true,
+                    opacity: 0.6,
+                    transmission: 0.8,
+                    ior: 1.5,
+                    metalness: 0.1,
+                    roughness: 0.3
+                });
+                const ring = new THREE.Mesh(ringGeometry, ringMaterial);
+                // Rotate 90 degrees around Y axis to make rings vertical (standing upright like hula hoops)
+                ring.rotation.y = Math.PI / 2;
+                group.add(ring);
+            }
+            
+            return group;
+        }
+        
+        return mesh;
+    }
+    
+    createJupiterTexture() {
+        // Create a procedural Jupiter texture with bands and swirls
+        const canvas = document.createElement('canvas');
+        const size = 512;
+        canvas.width = size;
+        canvas.height = size;
+        const ctx = canvas.getContext('2d');
+        
+        // Base Jupiter colors
+        const baseColors = [
+            { r: 216, g: 202, b: 157 }, // Tan/beige
+            { r: 200, g: 180, b: 140 }, // Lighter tan
+            { r: 180, g: 150, b: 120 }, // Orange-tan
+            { r: 160, g: 130, b: 100 }, // Darker orange
+            { r: 140, g: 110, b: 90 },  // Brown-orange
+        ];
+        
+        // Create horizontal bands (Jupiter's characteristic bands)
+        for (let y = 0; y < size; y++) {
+            const bandIndex = Math.floor((y / size) * baseColors.length);
+            const color = baseColors[bandIndex];
+            
+            // Add some variation and swirls
+            const noise = Math.sin(y * 0.1) * 0.3 + Math.sin(y * 0.05) * 0.2;
+            const r = Math.max(0, Math.min(255, color.r + noise * 30));
+            const g = Math.max(0, Math.min(255, color.g + noise * 20));
+            const b = Math.max(0, Math.min(255, color.b + noise * 15));
+            
+            ctx.fillStyle = `rgb(${Math.floor(r)}, ${Math.floor(g)}, ${Math.floor(b)})`;
+            ctx.fillRect(0, y, size, 1);
+        }
+        
+        // Add swirl patterns (Great Red Spot and other features)
+        for (let i = 0; i < 5; i++) {
+            const centerX = Math.random() * size;
+            const centerY = Math.random() * size;
+            const radius = 30 + Math.random() * 40;
+            
+            const gradient = ctx.createRadialGradient(centerX, centerY, 0, centerX, centerY, radius);
+            const swirlColor = i === 0 ? 'rgba(200, 100, 80, 0.4)' : 'rgba(180, 150, 120, 0.2)'; // Red spot for first swirl
+            gradient.addColorStop(0, swirlColor);
+            gradient.addColorStop(1, 'rgba(0, 0, 0, 0)');
+            
+            ctx.fillStyle = gradient;
+            ctx.beginPath();
+            ctx.arc(centerX, centerY, radius, 0, Math.PI * 2);
+            ctx.fill();
+        }
+        
+        // Add some horizontal streaks for cloud bands
+        for (let i = 0; i < 20; i++) {
+            const y = Math.random() * size;
+            const width = 2 + Math.random() * 3;
+            const alpha = 0.1 + Math.random() * 0.2;
+            
+            ctx.fillStyle = `rgba(255, 255, 255, ${alpha})`;
+            ctx.fillRect(0, y, size, width);
+        }
+        
+        // Add lighting/shadow effects like the CSS (box-shadow and gradient overlay)
+        // Create gradient overlay: linear-gradient(-90deg, transparent 30%, black)
+        // This creates a shadow on the left side (like box-shadow: inset 20px 0 20px black)
+        const gradient = ctx.createLinearGradient(0, 0, size, 0);
+        gradient.addColorStop(0, 'rgba(0, 0, 0, 0)'); // Transparent on left
+        gradient.addColorStop(0.3, 'rgba(0, 0, 0, 0)'); // Still transparent at 30%
+        gradient.addColorStop(1, 'rgba(0, 0, 0, 0.6)'); // Dark shadow on right
+        
+        ctx.fillStyle = gradient;
+        ctx.fillRect(0, 0, size, size);
+        
+        // Add additional shadow effect on the left edge (simulating inset shadow)
+        const leftShadowGradient = ctx.createRadialGradient(0, size/2, 0, 0, size/2, size * 0.15);
+        leftShadowGradient.addColorStop(0, 'rgba(0, 0, 0, 0.4)');
+        leftShadowGradient.addColorStop(1, 'rgba(0, 0, 0, 0)');
+        
+        ctx.fillStyle = leftShadowGradient;
+        ctx.fillRect(0, 0, size * 0.2, size);
+        
+        const texture = new THREE.CanvasTexture(canvas);
+        texture.needsUpdate = true;
+        return texture;
     }
     
     createOrb(config) {
@@ -1100,21 +1247,33 @@ void main() {
         let texture;
         
         if (isAstrological && config.imagePath) {
-            // Load image texture for astrological symbols
+            // Load image texture for astrological symbols or Jupiter
             const loader = new THREE.TextureLoader();
             texture = loader.load(config.imagePath, 
                 // onLoad callback
                 (loadedTexture) => {
                     loadedTexture.needsUpdate = true;
+                    // For Jupiter, add shadow overlay effects and set up animation
+                    if (config.name === 'jupiter' && config.textureAnimation) {
+                        this.setupJupiterAnimation(loadedTexture, config);
+                    }
                 },
                 // onProgress callback (optional)
                 undefined,
                 // onError callback
                 (error) => {
-                    console.error('Error loading astrological symbol image:', config.imagePath, error);
+                    console.error('Error loading image:', config.imagePath, error);
                 }
             );
             texture.transparent = true;
+            
+            // Store animation properties for Jupiter
+            if (config.name === 'jupiter' && config.textureAnimation) {
+                this.textureAnimationSpeed = config.textureAnimationSpeed || 0.00033;
+                this.textureAnimationOffset = 0;
+                texture.wrapS = THREE.RepeatWrapping;
+                texture.wrapT = THREE.ClampToEdgeWrapping;
+            }
         } else {
             // Create canvas element for text symbol (will be used as texture)
             const canvas = document.createElement('canvas');
@@ -1131,9 +1290,21 @@ void main() {
             this.symbolTexture = texture;
         }
         
+        // For Jupiter, create overlay texture with shadow effects and store texture reference
+        let finalTexture = texture;
+        if (config.name === 'jupiter' && config.textureAnimation) {
+            // Store texture reference for animation BEFORE creating overlay
+            this.jupiterTexture = texture;
+            this.textureAnimationSpeed = config.textureAnimationSpeed || 0.00033;
+            this.textureAnimationOffset = 0;
+            texture.wrapS = THREE.RepeatWrapping;
+            texture.wrapT = THREE.ClampToEdgeWrapping;
+            finalTexture = this.createJupiterOverlay(texture);
+        }
+        
         // Create sprite material
         const spriteMaterial = new THREE.SpriteMaterial({
-            map: texture,
+            map: finalTexture,
             transparent: true,
             alphaTest: 0.01,
             depthWrite: true,
@@ -1147,7 +1318,7 @@ void main() {
         
         // Set renderOrder for astrological symbols so they render after planes but respect depth
         // This allows planes to occlude them when they pass behind
-        if (isAstrological) {
+        if (isAstrological || config.name === 'jupiter') {
             sprite.renderOrder = 1; // Render after planes (which have renderOrder 0 or default)
         }
         
@@ -1190,6 +1361,167 @@ void main() {
         if (this.symbolTexture) {
             this.symbolTexture.needsUpdate = true;
         }
+    }
+    
+    createJupiterOverlay(baseTexture) {
+        // Create a canvas overlay with shadow effects like the CSS :before pseudo-element
+        // This simulates: box-shadow: inset 20px 0 20px black and linear-gradient(-90deg, transparent 30%, black)
+        const canvas = document.createElement('canvas');
+        const size = 512; // Match texture size
+        canvas.width = size;
+        canvas.height = size;
+        const ctx = canvas.getContext('2d');
+        
+        // Draw the base Jupiter texture first
+        // We'll composite this with the overlay
+        // For now, create the overlay gradient/shadow effects
+        const gradient = ctx.createLinearGradient(0, 0, size, 0);
+        gradient.addColorStop(0, 'rgba(0, 0, 0, 0)'); // Transparent on left
+        gradient.addColorStop(0.3, 'rgba(0, 0, 0, 0)'); // Still transparent at 30%
+        gradient.addColorStop(1, 'rgba(0, 0, 0, 0.6)'); // Dark shadow on right
+        
+        ctx.fillStyle = gradient;
+        ctx.fillRect(0, 0, size, size);
+        
+        // Add inset shadow effect on left edge (simulating box-shadow: inset 20px 0 20px black)
+        const leftShadowGradient = ctx.createRadialGradient(0, size/2, 0, 0, size/2, size * 0.15);
+        leftShadowGradient.addColorStop(0, 'rgba(0, 0, 0, 0.4)');
+        leftShadowGradient.addColorStop(1, 'rgba(0, 0, 0, 0)');
+        
+        ctx.fillStyle = leftShadowGradient;
+        ctx.fillRect(0, 0, size * 0.2, size);
+        
+        // Create overlay texture
+        const overlayTexture = new THREE.CanvasTexture(canvas);
+        overlayTexture.needsUpdate = true;
+        
+        // Store base texture for animation
+        this.jupiterBaseTexture = baseTexture;
+        this.jupiterOverlayTexture = overlayTexture;
+        
+        // Return base texture (overlay will be applied via shader or compositing)
+        // For now, we'll animate the base texture and the overlay will be static
+        return baseTexture;
+    }
+    
+    setupJupiterAnimation(texture, config) {
+        // Store texture reference for animation
+        this.jupiterTexture = texture;
+        this.textureAnimationSpeed = config.textureAnimationSpeed || 0.00033;
+        this.textureAnimationOffset = 0;
+    }
+    
+    loadGLTF(config) {
+        // Load GLTF/GLB model asynchronously
+        const loader = new GLTFLoader();
+        const modelPath = config.modelPath || config.imagePath; // Support both property names
+        
+        console.log(`Loading GLTF model: ${this.name} from ${modelPath}`);
+        
+        loader.load(
+            modelPath,
+            // onLoad callback
+            (gltf) => {
+                console.log(`GLTF model loaded: ${this.name}`, gltf);
+                // Get the scene from the GLTF (contains the model)
+                const model = gltf.scene;
+                
+                // Calculate bounding box to determine appropriate scale
+                const box = new THREE.Box3().setFromObject(model);
+                const size = box.getSize(new THREE.Vector3());
+                const maxDimension = Math.max(size.x, size.y, size.z);
+                console.log(`Model bounding box size:`, size, `Max dimension: ${maxDimension}`);
+                
+                // Calculate appropriate scale to make model visible (target size around 0.5-1.0 units)
+                let scale = config.scale;
+                if (!scale) {
+                    // Auto-scale: make the largest dimension approximately 0.5 units
+                    scale = 0.5 / maxDimension;
+                    console.log(`Auto-calculated scale: ${scale}`);
+                }
+                model.scale.set(scale, scale, scale);
+                const finalSize = size.clone().multiplyScalar(scale);
+                console.log(`Applied scale: ${scale}, final size:`, finalSize, `position:`, this.position);
+                
+                // Set position
+                model.position.copy(this.position);
+                
+                // Apply rotation if specified
+                if (config.rotation) {
+                    model.rotation.set(...config.rotation);
+                }
+                
+                // Store the model as mesh
+                this.mesh = model;
+                
+                // Make sure model is visible
+                model.visible = true;
+                
+                // Traverse and ensure all children are visible and properly configured
+                model.traverse((child) => {
+                    if (child.isMesh) {
+                        child.visible = true;
+                        child.frustumCulled = false; // Disable frustum culling to ensure visibility
+                        // Ensure materials are visible and have proper settings
+                        if (child.material) {
+                            if (Array.isArray(child.material)) {
+                                child.material.forEach(mat => {
+                                    if (mat) {
+                                        mat.visible = true;
+                                        mat.needsUpdate = true;
+                                    }
+                                });
+                            } else {
+                                child.material.visible = true;
+                                child.material.needsUpdate = true;
+                            }
+                        }
+                        console.log(`Mesh found: ${child.name || 'unnamed'}, visible: ${child.visible}, position:`, child.position);
+                    }
+                });
+                
+                // Add to planes group if it exists (set in addToGroup)
+                if (this.planesGroup) {
+                    this.planesGroup.add(model);
+                    console.log(`Added ${this.name} to planesGroup at position:`, model.position);
+                } else if (this.sceneManager && this.sceneManager.planesGroup) {
+                    // Fallback: use scene manager's group reference
+                    this.planesGroup = this.sceneManager.planesGroup;
+                    this.planesGroup.add(model);
+                    console.log(`Added ${this.name} to sceneManager.planesGroup at position:`, model.position);
+                } else {
+                    // Fallback: add directly to scene
+                    this.scene.add(model);
+                    console.log(`Added ${this.name} directly to scene at position:`, model.position);
+                }
+                
+                // Update line position if line exists
+                if (this.line) {
+                    this.updateLine();
+                }
+                
+                // Store GLTF reference for potential animation
+                this.gltf = gltf;
+                
+                // Trigger environment map regeneration if needed
+                if (this.sceneManager && this.sceneManager.onEnvironmentUpdate) {
+                    this.sceneManager.onEnvironmentUpdate();
+                }
+                
+                console.log(`${this.name} fully loaded and added to scene. Scale: ${scale}, Final size:`, size.multiplyScalar(scale));
+            },
+            // onProgress callback (optional)
+            (progress) => {
+                if (progress.lengthComputable) {
+                    const percentComplete = (progress.loaded / progress.total) * 100;
+                    console.log(`Loading ${this.name}: ${percentComplete.toFixed(1)}%`);
+                }
+            },
+            // onError callback
+            (error) => {
+                console.error(`Error loading GLTF model ${this.name}:`, error);
+            }
+        );
     }
     
     createCyclingSymbol(config) {
@@ -1333,10 +1665,15 @@ void main() {
     
     createGalaxy(config) {
         // Create a spiral galaxy using points
-        // Use more particles for Sirius
-        const starCount = config.name === 'SIRIUS' 
-            ? Math.floor(Math.random() * 200) + 150 // 150-349 particles for Sirius
-            : Math.floor(Math.random() * 100); // Random number of stars like original
+        // Use more particles for Large Magellanic Cloud and Andromeda
+        let starCount;
+        if (config.name === 'Large Magellanic Cloud') {
+            starCount = Math.floor(Math.random() * 200) + 150; // 150-349 particles for Large Magellanic Cloud
+        } else if (config.name === 'ANDROMEDA') {
+            starCount = Math.floor(Math.random() * 100) + 200; // 200-299 particles for Andromeda
+        } else {
+            starCount = Math.floor(Math.random() * 100); // Random number of stars like original
+        }
         const galaxyGeometry = new THREE.BufferGeometry();
         const galaxyPositions = new Float32Array(starCount * 3);
         const galaxyColors = new Float32Array(starCount * 3);
@@ -1382,8 +1719,8 @@ void main() {
             galaxyPositions[i3 + 2] = chaosZ; // Keep Z near 0 for flat galaxy
             
             // Color: depends on galaxy type
-            if (config.name === 'ANDROMEDA' || config.name === 'SIRIUS') {
-                // Pale blue stars for Andromeda and Sirius
+            if (config.name === 'ANDROMEDA' || config.name === 'Large Magellanic Cloud') {
+                // Pale blue stars for Andromeda and Large Magellanic Cloud
                 const blueIntensity = 0.6 + Math.random() * 0.3; // Vary brightness
                 galaxyColors[i3] = blueIntensity * 0.7; // R (pale)
                 galaxyColors[i3 + 1] = blueIntensity * 0.85; // G (pale)
@@ -1418,10 +1755,10 @@ void main() {
         galaxyGeometry.userData.initialRotationZ = randomRotationZ; // Store initial rotation around Z axis
         galaxyGeometry.userData.rotationAngle = 0;
         galaxyGeometry.userData.rotationSpeed = config.rotationSpeed !== undefined ? config.rotationSpeed : 0.01; // Faster rotation speed
-        galaxyGeometry.userData.isAndromeda = config.name === 'ANDROMEDA' || config.name === 'SIRIUS'; // Track if this is Andromeda or Sirius for blinking
-        galaxyGeometry.userData.isSirius = config.name === 'SIRIUS'; // Track if this is Sirius for more twinkling
+        galaxyGeometry.userData.isAndromeda = config.name === 'ANDROMEDA' || config.name === 'Large Magellanic Cloud'; // Track if this is Andromeda or Large Magellanic Cloud for blinking
+        galaxyGeometry.userData.isSirius = config.name === 'Large Magellanic Cloud'; // Track if this is Large Magellanic Cloud for more twinkling
         galaxyGeometry.userData.blinkTime = 0; // Blinking animation timer
-        galaxyGeometry.userData.twinkleSpeed = config.twinkleSpeed || 0.01; // Twinkling speed (faster for Sirius)
+        galaxyGeometry.userData.twinkleSpeed = config.twinkleSpeed || 0.01; // Twinkling speed (faster for Large Magellanic Cloud)
         
         // Galaxy material - use colors from attributes
         const galaxyMaterial = new THREE.PointsMaterial({
@@ -3068,7 +3405,7 @@ void main() {
                 geometry.userData.blinkTime = (geometry.userData.blinkTime || 0) + twinkleSpeed;
                 
                 if (geometry.userData.isSirius) {
-                    // More dramatic twinkling for Sirius - faster and more variation
+                    // More dramatic twinkling for Large Magellanic Cloud - faster and more variation
                     const fastTwinkle = Math.sin(geometry.userData.blinkTime * 2) * 0.5 + 0.5;
                     const slowTwinkle = Math.sin(geometry.userData.blinkTime * 0.5) * 0.5 + 0.5;
                     blinkOpacity = 0.3 + 0.7 * (fastTwinkle * 0.6 + slowTwinkle * 0.4); // More variation
@@ -3165,6 +3502,19 @@ void main() {
                 this.line.position.x = x;
                 this.line.position.z = z;
             }
+        }
+        // Update Jupiter texture animation (background-position animation like CSS)
+        // CSS: background-position: 0 0 to 100% 0 (animates horizontally)
+        if (this.jupiterTexture && this.textureAnimationSpeed !== undefined) {
+            // Animate background-position from 0 0 to 100% 0 (CSS: background-position: 0 0 to 100% 0)
+            // This scrolls the texture horizontally, matching the CSS animation
+            this.textureAnimationOffset = (this.textureAnimationOffset || 0) + this.textureAnimationSpeed;
+            // Wrap around when it reaches 1.0 (100%)
+            if (this.textureAnimationOffset >= 1.0) {
+                this.textureAnimationOffset = this.textureAnimationOffset % 1.0;
+            }
+            // Set texture offset (this is like background-position in CSS)
+            this.jupiterTexture.offset.x = this.textureAnimationOffset;
         }
         // Update line based on camera position (if line exists)
         if (this.line) {
@@ -3396,9 +3746,15 @@ void main() {
     }
     
     addToGroup(group) {
-        // Store reference to planes group for cloud animation
+        // Store reference to planes group for cloud animation and GLTF models
         if (group && group.userData && group.userData.isPlanesGroup) {
             this.planesGroup = group;
+        }
+        
+        // For GLTF type, mesh will be null initially (loads asynchronously)
+        // The model will add itself to the group when it loads (handled in loadGLTF)
+        if (this.mesh) {
+            group.add(this.mesh);
         }
         
         // For orb type, create a dummy invisible mesh to track position in group

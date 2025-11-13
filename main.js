@@ -920,11 +920,11 @@ for (let i = 0; i < 12; i++) {
     });
 }
 
-// Add SIRIUS galaxy at fire corner (bottom-right, opposite Andromeda) - identical but smaller particles and more twinkling
-const siriusX = plane2HalfSize - 1.5; // Fire corner (bottom-right, opposite Andromeda)
-const siriusZ = plane2HalfSize - 1.5;
+// Add Large Magellanic Cloud galaxy at fire corner (bottom-right, opposite Andromeda) - identical but smaller particles and more twinkling
+const siriusX = plane2HalfSize + 2.5; // Moved further out into outer space (bottom-right direction)
+const siriusZ = plane2HalfSize + 2.5;
 sceneManager.addObject({
-    name: 'SIRIUS',
+    name: 'Large Magellanic Cloud',
     type: 'galaxy',
     position: [siriusX, (2 - 1) * spacing - 0.5, siriusZ],
     size: 0.04, // Smaller particles than Andromeda (0.06)
@@ -1029,6 +1029,151 @@ sceneManager.addObject({
     lineOpacity: 0.5
 });
 
+// Add Jupiter - large sphere with rotating texture in random area from 0b to 2a
+// Areas span from y=-2.5 (plane 0) to y=5.0 (plane 2)
+const jupiterY = Math.random() * 7.5 - 2.5; // Random Y between -2.5 and 5.0
+const jupiterX = (Math.random() - 0.5) * 6; // Random X between -3 and 3
+const jupiterZ = (Math.random() - 0.5) * 6; // Random Z between -3 and 3
+// Calculate angle from center to Jupiter position to point outward
+const jupiterAngle = Math.atan2(jupiterZ, jupiterX);
+// Determine region based on Y position
+let jupiterRegion;
+if (jupiterY < 0) {
+    jupiterRegion = '0b'; // Top side of plane 0
+} else if (jupiterY < 2.5) {
+    jupiterRegion = '1a'; // Bottom side of plane 1
+} else {
+    jupiterRegion = '2a'; // Bottom side of plane 2
+}
+
+sceneManager.addObject({
+    name: 'jupiter',
+    type: 'gltf',
+    modelPath: '/Jupiter_1_142984.glb', // NASA 3D model of Jupiter
+    position: [jupiterX, jupiterY, jupiterZ], // Random position in area from 0b to 2a
+    // scale will be auto-calculated based on model size, or set manually if needed
+    region: jupiterRegion,
+    bindingType: 'free',
+    lineType: 'laser', // Laser line points outward using angle
+    angle: jupiterAngle, // Angle pointing outward from center
+    lineColor: 0xffffff,
+    lineOpacity: 0.5
+});
+
+// Add Mercury - small glass sphere in random area from 0b to 2a
+// Areas span from y=-2.5 (plane 0) to y=5.0 (plane 2)
+const mercuryY = Math.random() * 7.5 - 2.5; // Random Y between -2.5 and 5.0
+const mercuryX = (Math.random() - 0.5) * 6; // Random X between -3 and 3
+const mercuryZ = (Math.random() - 0.5) * 6; // Random Z between -3 and 3
+// Calculate angle from center to Mercury position to point outward
+const mercuryAngle = Math.atan2(mercuryZ, mercuryX);
+// Determine region based on Y position
+let mercuryRegion;
+if (mercuryY < 0) {
+    mercuryRegion = '0b'; // Top side of plane 0
+} else if (mercuryY < 2.5) {
+    mercuryRegion = '1a'; // Bottom side of plane 1
+} else {
+    mercuryRegion = '2a'; // Bottom side of plane 2
+}
+
+sceneManager.addObject({
+    name: 'mercury',
+    type: 'sphere',
+    position: [mercuryX, mercuryY, mercuryZ], // Random position in area from 0b to 2a
+    radius: 0.1, // Small sphere (smaller than Mars/Venus)
+    color: 0x888888, // Gray color
+    emissive: 0x222222, // Dark gray emissive for slight glow
+    emissiveIntensity: 0.2,
+    metalness: 0.1,
+    roughness: 0.3,
+    transmission: 0.9, // Glass-like transparency
+    ior: 1.5, // Glass index of refraction
+    region: mercuryRegion,
+    bindingType: 'free',
+    lineType: 'laser', // Laser line points outward using angle
+    angle: mercuryAngle, // Angle pointing outward from center
+    lineColor: 0xffffff,
+    lineOpacity: 0.5
+});
+
+// Add Uranus - glass sphere with vertical rings in random area from 0b to 2a
+// Areas span from y=-2.5 (plane 0) to y=5.0 (plane 2)
+const uranusY = Math.random() * 7.5 - 2.5; // Random Y between -2.5 and 5.0
+const uranusX = (Math.random() - 0.5) * 6; // Random X between -3 and 3
+const uranusZ = (Math.random() - 0.5) * 6; // Random Z between -3 and 3
+// Calculate angle from center to Uranus position to point outward
+const uranusAngle = Math.atan2(uranusZ, uranusX);
+// Determine region based on Y position
+let uranusRegion;
+if (uranusY < 0) {
+    uranusRegion = '0b'; // Top side of plane 0
+} else if (uranusY < 2.5) {
+    uranusRegion = '1a'; // Bottom side of plane 1
+} else {
+    uranusRegion = '2a'; // Bottom side of plane 2
+}
+
+sceneManager.addObject({
+    name: 'uranus',
+    type: 'sphere',
+    position: [uranusX, uranusY, uranusZ], // Random position in area from 0b to 2a
+    radius: 0.2, // Medium-sized sphere
+    color: 0x4fd0e7, // Cyan color (Uranus's characteristic color)
+    emissive: 0x1a4a55, // Dark cyan emissive for slight glow
+    emissiveIntensity: 0.2,
+    metalness: 0.1,
+    roughness: 0.3,
+    transmission: 0.9, // Glass-like transparency
+    ior: 1.5, // Glass index of refraction
+    verticalRings: true, // Enable vertical rings
+    ringCount: 3, // Number of rings
+    ringRadius: 0.3, // Ring radius (1.5x planet radius)
+    ringTube: 0.015, // Thickness of rings
+    ringColor: 0x88aacc, // Light blue-gray for rings
+    region: uranusRegion,
+    bindingType: 'free',
+    lineType: 'laser', // Laser line points outward using angle
+    angle: uranusAngle, // Angle pointing outward from center
+    lineColor: 0xffffff,
+    lineOpacity: 0.5
+});
+
+// Add Neptune - small blue sphere in random area from 0b to 2a
+// Areas span from y=-2.5 (plane 0) to y=5.0 (plane 2)
+const neptuneY = Math.random() * 7.5 - 2.5; // Random Y between -2.5 and 5.0
+const neptuneX = (Math.random() - 0.5) * 6; // Random X between -3 and 3
+const neptuneZ = (Math.random() - 0.5) * 6; // Random Z between -3 and 3
+// Calculate angle from center to Neptune position to point outward
+const neptuneAngle = Math.atan2(neptuneZ, neptuneX);
+// Determine region based on Y position
+let neptuneRegion;
+if (neptuneY < 0) {
+    neptuneRegion = '0b'; // Top side of plane 0
+} else if (neptuneY < 2.5) {
+    neptuneRegion = '1a'; // Bottom side of plane 1
+} else {
+    neptuneRegion = '2a'; // Bottom side of plane 2
+}
+
+sceneManager.addObject({
+    name: 'neptune',
+    type: 'sphere',
+    position: [neptuneX, neptuneY, neptuneZ], // Random position in area from 0b to 2a
+    radius: 0.12, // Small sphere (slightly larger than Mercury)
+    color: 0x4166f5, // Deep blue color (Neptune's characteristic color)
+    emissive: 0x1a1f3d, // Dark blue emissive for slight glow
+    emissiveIntensity: 0.2,
+    metalness: 0.1,
+    roughness: 0.4,
+    region: neptuneRegion,
+    bindingType: 'free',
+    lineType: 'laser', // Laser line points outward using angle
+    angle: neptuneAngle, // Angle pointing outward from center
+    lineColor: 0xffffff,
+    lineOpacity: 0.5
+});
+
 // Add black hole (Gaia BH1) in area 0b (top side of plane 0) at random location
 const gaiaBH1X = (Math.random() - 0.5) * 6; // Random between -3 and 3
 const gaiaBH1Z = (Math.random() - 0.5) * 6; // Random between -3 and 3
@@ -1129,47 +1274,98 @@ sceneManager.addObject({
     lineOpacity: 0.5
 });
 
-// Add glowing region in area 0b (top side of plane 0) - random location avoiding collisions
-// Black cube is at [0, 1.25, 0] (but same Y level as TARANTULA), Zeta Reticuli is at randomX0b, randomZ0b
-let tarantulaX, tarantulaZ;
-let tarantulaAttempts = 0;
-const minDistanceFromObjects = 2.5; // Minimum distance from other objects
-const blackCubeX = 0;
-const blackCubeZ = 0;
-do {
-    tarantulaX = (Math.random() - 0.5) * 6; // Random between -3 and 3
-    tarantulaZ = (Math.random() - 0.5) * 6; // Random between -3 and 3
-    // Check distance from black cube (at [0, 1.25, 0] but same Y level)
-    const distFromBlackCube = Math.sqrt((tarantulaX - blackCubeX) * (tarantulaX - blackCubeX) + (tarantulaZ - blackCubeZ) * (tarantulaZ - blackCubeZ));
-    // Also check distance from Zeta Reticuli
-    const distFromZeta = Math.sqrt((tarantulaX - randomX0b) * (tarantulaX - randomX0b) + (tarantulaZ - randomZ0b) * (tarantulaZ - randomZ0b));
-    tarantulaAttempts++;
-    if ((distFromBlackCube >= minDistanceFromObjects && distFromZeta >= minDistanceFromObjects) || tarantulaAttempts > 50) break;
-} while (Math.sqrt((tarantulaX - blackCubeX) * (tarantulaX - blackCubeX) + (tarantulaZ - blackCubeZ) * (tarantulaZ - blackCubeZ)) < minDistanceFromObjects || 
-         Math.sqrt((tarantulaX - randomX0b) * (tarantulaX - randomX0b) + (tarantulaZ - randomZ0b) * (tarantulaZ - randomZ0b)) < minDistanceFromObjects);
+// Add combined Messier 87 (glowing region + black hole) in area 0b, positioned in outer space
+// Random position in area 0b (between plane 0 at y=-2.5 and plane 1 at y=0), but further out from center
+const m87Y = -1.25; // Middle of area 0b (between planes 0 and 1)
+const m87OuterRadius = 5.0 + Math.random() * 1.5; // Random radius between 5.0 and 6.5 (further into outer space)
+const m87StartAngle = Math.random() * Math.PI * 2; // Random starting angle
+const m87X = Math.cos(m87StartAngle) * m87OuterRadius;
+const m87Z = Math.sin(m87StartAngle) * m87OuterRadius;
+const m87Angle = Math.atan2(m87Z, m87X); // Angle pointing outward from center
 
-// Calculate angle from center to TARANTULA position to point outward
-const tarantulaAngle = Math.atan2(tarantulaZ, tarantulaX);
-
+// Create Messier 87 glowing region
 sceneManager.addObject({
-    name: 'TARANTULA',
+    name: 'Messier 87',
     type: 'glowingregion',
-    position: [tarantulaX, -1.25, tarantulaZ], // Random position in region 0b, avoiding collisions
+    position: [m87X, m87Y, m87Z], // Random position in area 0b, outer space
     size: 2.5, // Size of the glowing region
     particleCount: 300, // Number of glowing particles
     particleSize: 0.05, // Much smaller particle size
     color: 0x88aaff, // Blue glow color
     opacity: 0.6, // Glow opacity
     region: '0b', // Top side of plane 0
-    bindingType: 'elastic',
-    planeA: 0,
-    planeB: 1,
-    percentage: 0.5, // 50% of the way between planes 0 and 1
+    bindingType: 'free', // Free positioning
     lineType: 'laser',
-    angle: tarantulaAngle, // Angle pointing outward from center
+    angle: m87Angle, // Angle pointing outward from center
     lineColor: 0xffffff,
     lineOpacity: 0.5
 });
+
+// Create M87 black hole at the center of Messier 87 (same position)
+sceneManager.addObject({
+    name: 'M87',
+    type: 'blackholesim',
+    position: [m87X, m87Y, m87Z], // Same position as Messier 87 (center of glowing region)
+    blackHoleRadius: 0.25, // Smaller black hole
+    rotationSpeed: 0.0005, // Rotation speed
+    region: '0b', // Top side of plane 0
+    bindingType: 'free', // Free positioning
+    lineType: null // No label or line
+});
+
+// Store M87 data for star animation
+const m87Data = {
+    centerX: m87X,
+    centerY: m87Y,
+    centerZ: m87Z,
+    particleOrbits: [], // Will store orbital data for each particle
+    m87Object: null // Will store reference to M87 object
+};
+
+// Initialize M87 particle orbits after object is created
+// Find the M87 object and initialize orbital parameters for each particle
+setTimeout(() => {
+    const m87Object = sceneManager.allObjects.find(obj => obj.name === 'Messier 87');
+    if (m87Object && m87Object.mesh) {
+        m87Data.m87Object = m87Object;
+        const geometry = m87Object.mesh.geometry;
+        const positions = geometry.attributes.position;
+        const particleCount = positions.count;
+        
+        // Initialize orbital parameters for each particle
+        // Note: createGlowingRegion uses: x = r*sin(phi)*cos(theta), y = r*sin(phi)*sin(theta), z = r*cos(phi)
+        for (let i = 0; i < particleCount; i++) {
+            const x = positions.getX(i);
+            const y = positions.getY(i);
+            const z = positions.getZ(i);
+            
+            // Calculate initial distance from center
+            const radius = Math.sqrt(x * x + y * y + z * z);
+            
+            // Calculate initial angles matching createGlowingRegion coordinate system
+            // z = r*cos(phi) => phi = acos(z/r)
+            // x = r*sin(phi)*cos(theta) => theta = atan2(y, x) (since y = r*sin(phi)*sin(theta))
+            const phi = Math.acos(Math.max(-1, Math.min(1, z / Math.max(radius, 0.001)))); // Polar angle from Z axis
+            const theta = Math.atan2(y, x); // Azimuth angle in XY plane
+            
+            // Store orbital data
+            // Stars orbit primarily in a disk (like a galaxy), with most motion in theta (azimuth)
+            // Outer stars move slower (Keplerian motion), inner stars move faster
+            const regionSize = 2.5; // M87 region size
+            const normalizedRadius = radius / regionSize; // Normalize to 0-1
+            const baseSpeed = 0.01 + (1 - normalizedRadius) * 0.02; // Faster near center, slower at edges
+            
+            m87Data.particleOrbits.push({
+                radius: radius,
+                theta: theta, // Azimuth angle in XY plane
+                phi: phi, // Polar angle from Z axis
+                thetaSpeed: baseSpeed * (0.5 + Math.random() * 0.5), // Random rotation speed around Z axis
+                phiSpeed: (Math.random() - 0.5) * 0.003, // Small random tilt variation (very slow)
+                phiDirection: Math.random() > 0.5 ? 1 : -1 // Random direction for phi variation
+            });
+        }
+    }
+}, 100); // Small delay to ensure object is created
 
 // Add shader sphere in region 1b (top side of plane 1) at random location - ELASTIC between planes 1 and 2
 const randomX = (Math.random() - 0.5) * 6; // Random between -3 and 3
@@ -1582,25 +1778,6 @@ sceneManager.addObject({
     lineType: null // No line
 });
 
-// Add 3D black hole simulation (Sagittarius) in area 0b (inner space, top side of plane 0)
-const sagittariusSimX = (Math.random() - 0.5) * 6; // Random between -3 and 3
-const sagittariusSimZ = (Math.random() - 0.5) * 6; // Random between -3 and 3
-// Calculate angle from center to position to point outward
-const sagittariusSimAngle = Math.atan2(sagittariusSimZ, sagittariusSimX);
-
-sceneManager.addObject({
-    name: 'Sagittarius',
-    type: 'blackholesim',
-    position: [sagittariusSimX, -1.25, sagittariusSimZ], // Random position in region 0b (between plane 0 at y=-2.5 and plane 1 at y=0)
-    blackHoleRadius: 0.25, // Smaller black hole
-    rotationSpeed: 0.0005, // Rotation speed
-    region: '0b', // Top side of plane 0
-    bindingType: 'free',
-    lineType: 'laser',
-    angle: sagittariusSimAngle, // Angle pointing outward from center
-    lineColor: 0xffffff,
-    lineOpacity: 0.5
-});
 
 // Add star sphere centered on Nucleus - separated from Saturn's simulation
 // Nucleus is at [0, 3.75, 0], so star sphere is centered there
@@ -1858,7 +2035,7 @@ if (isMobile) {
 
 // Animation loop with slow rotation and smooth zoom
 let waveTime = 0;
-// Celestial events system (shooting star, comet, eclipse)
+// Celestial events system (shooting star, comet)
 let celestialEventTimeout = null;
 const nightContainer = document.getElementById('night-container');
 const body = document.body;
@@ -1921,60 +2098,20 @@ function createComet() {
     scheduleNextCelestialEvent();
 }
 
-function createEclipse() {
-    // Create eclipse overlay that gradually fades background to white and back (10 seconds total)
-    const eclipseOverlay = document.createElement('div');
-    eclipseOverlay.className = 'eclipse-overlay';
-    eclipseOverlay.style.position = 'fixed';
-    eclipseOverlay.style.top = '0';
-    eclipseOverlay.style.left = '0';
-    eclipseOverlay.style.width = '100%';
-    eclipseOverlay.style.height = '100%';
-    eclipseOverlay.style.backgroundColor = 'rgba(255, 255, 255, 0)';
-    eclipseOverlay.style.pointerEvents = 'none';
-    eclipseOverlay.style.zIndex = '9999';
-    eclipseOverlay.style.transition = 'background-color 5s ease-in-out';
-    
-    body.appendChild(eclipseOverlay);
-    
-    // Fade to white over 5 seconds
-    setTimeout(() => {
-        eclipseOverlay.style.backgroundColor = 'rgba(255, 255, 255, 1)';
-    }, 10);
-    
-    // Fade back to transparent over 5 seconds (starts at 5 seconds, completes at 10 seconds)
-    setTimeout(() => {
-        eclipseOverlay.style.transition = 'background-color 5s ease-in-out';
-        eclipseOverlay.style.backgroundColor = 'rgba(255, 255, 255, 0)';
-    }, 5000);
-    
-    // Remove overlay after animation completes (10 seconds total)
-    setTimeout(() => {
-        if (eclipseOverlay.parentNode) {
-            eclipseOverlay.parentNode.removeChild(eclipseOverlay);
-        }
-    }, 10000);
-    
-    // Schedule next event
-    scheduleNextCelestialEvent();
-}
-
 function scheduleNextCelestialEvent() {
     // Random delay between 70-120 seconds
     const minDelay = 70000; // 70 seconds
     const maxDelay = 120000; // 120 seconds
     const delay = Math.random() * (maxDelay - minDelay) + minDelay;
     
-    // Randomly choose one of three events (equal probability)
-    const eventType = Math.floor(Math.random() * 3);
+    // Randomly choose one of two events (equal probability)
+    const eventType = Math.floor(Math.random() * 2);
     
     celestialEventTimeout = setTimeout(() => {
         if (eventType === 0) {
             createShootingStar();
-        } else if (eventType === 1) {
-            createComet();
         } else {
-            createEclipse();
+            createComet();
         }
     }, delay);
 }
@@ -1984,12 +2121,149 @@ setTimeout(() => {
     scheduleNextCelestialEvent();
 }, 5000); // First event after 5 seconds
 
+// Sun-Nucleus eclipse system
+let isEclipseActive = false;
+let eclipseOverlay = null;
+
+function checkSunNucleusAlignment() {
+    // Find SUN object
+    const sunObject = sceneManager.allObjects.find(obj => obj.name === 'SUN');
+    
+    if (!sunObject || !sunObject.position) {
+        return false;
+    }
+    
+    // Check if sun is crossing the center Y axis (X position near 0)
+    // Camera is at (0, 2, 10), so when sun's X is near 0, it's opposite the camera
+    const sunX = sunObject.position.x;
+    const threshold = 0.5; // Trigger when sun is within 0.5 units of center
+    
+    // Check if sun crossed from one side to the other (to trigger once per crossing)
+    if (typeof window.lastSunX === 'undefined') {
+        window.lastSunX = sunX;
+        return false;
+    }
+    
+    // Check if sun crossed the center line (went from negative to positive or vice versa)
+    const crossedCenter = (window.lastSunX < -threshold && sunX >= -threshold) || 
+                          (window.lastSunX > threshold && sunX <= threshold);
+    
+    window.lastSunX = sunX;
+    
+    if (crossedCenter) {
+        console.log('*** Sun crossed center axis! X=' + sunX.toFixed(2) + ' ***');
+        return true;
+    }
+    
+    return false;
+}
+
+function triggerSunEclipse() {
+    if (isEclipseActive) {
+        return; // Already in eclipse
+    }
+    
+    console.log('=== ECLIPSE TRIGGERED ===');
+    isEclipseActive = true;
+    
+    // Create eclipse overlay
+    eclipseOverlay = document.createElement('div');
+    eclipseOverlay.className = 'sun-eclipse-overlay';
+    eclipseOverlay.style.position = 'fixed';
+    eclipseOverlay.style.top = '0';
+    eclipseOverlay.style.left = '0';
+    eclipseOverlay.style.width = '100%';
+    eclipseOverlay.style.height = '100%';
+    eclipseOverlay.style.backgroundColor = 'rgba(255, 255, 255, 0)';
+    eclipseOverlay.style.pointerEvents = 'none';
+    eclipseOverlay.style.zIndex = '9999';
+    eclipseOverlay.style.transition = 'background-color 1s ease-in-out';
+    
+    if (!body) {
+        console.error('body element not found!');
+        isEclipseActive = false;
+        return;
+    }
+    
+    body.appendChild(eclipseOverlay);
+    console.log('Eclipse overlay added to body');
+    
+    // Fade to white over 1 second
+    setTimeout(() => {
+        if (eclipseOverlay) {
+            eclipseOverlay.style.backgroundColor = 'rgba(255, 255, 255, 1)';
+            console.log('Eclipse fading to white');
+        }
+    }, 10);
+    
+    // Fade back to transparent over 1 second (starts at 1 second, completes at 2 seconds)
+    setTimeout(() => {
+        if (eclipseOverlay) {
+            eclipseOverlay.style.transition = 'background-color 1s ease-in-out';
+            eclipseOverlay.style.backgroundColor = 'rgba(255, 255, 255, 0)';
+            console.log('Eclipse fading back');
+        }
+    }, 1000);
+    
+    // Remove overlay and reset state after animation completes (2 seconds total)
+    setTimeout(() => {
+        if (eclipseOverlay && eclipseOverlay.parentNode) {
+            eclipseOverlay.parentNode.removeChild(eclipseOverlay);
+            eclipseOverlay = null;
+            console.log('Eclipse overlay removed');
+        }
+        // Reset state after a small delay to prevent immediate re-trigger
+        setTimeout(() => {
+            isEclipseActive = false;
+            console.log('Eclipse state reset');
+        }, 100);
+    }, 2000);
+}
+
 function animate() {
     requestAnimationFrame(animate);
     
     // Update star twinkling time
     if (starMaterial && starMaterial.uniforms) {
         starMaterial.uniforms.uTime.value += 0.016; // ~60fps
+    }
+    
+    // Update M87 star motion - stars orbit around the black hole
+    if (m87Data.m87Object && m87Data.m87Object.mesh && m87Data.particleOrbits.length > 0) {
+        const geometry = m87Data.m87Object.mesh.geometry;
+        const positions = geometry.attributes.position;
+        const particleCount = positions.count;
+        
+        for (let i = 0; i < particleCount && i < m87Data.particleOrbits.length; i++) {
+            const orbit = m87Data.particleOrbits[i];
+            
+            // Update orbital angles
+            orbit.theta += orbit.thetaSpeed; // Rotate around Z axis (azimuth) - primary motion
+            orbit.phi += orbit.phiSpeed * orbit.phiDirection; // Vary polar angle slightly
+            
+            // Keep phi in valid range [0, π] and reverse direction at boundaries
+            if (orbit.phi < 0) {
+                orbit.phi = 0;
+                orbit.phiDirection = 1;
+            } else if (orbit.phi > Math.PI) {
+                orbit.phi = Math.PI;
+                orbit.phiDirection = -1;
+            }
+            
+            // Calculate new position using spherical coordinates matching createGlowingRegion
+            // x = r*sin(phi)*cos(theta), y = r*sin(phi)*sin(theta), z = r*cos(phi)
+            const x = orbit.radius * Math.sin(orbit.phi) * Math.cos(orbit.theta);
+            const y = orbit.radius * Math.sin(orbit.phi) * Math.sin(orbit.theta);
+            const z = orbit.radius * Math.cos(orbit.phi);
+            
+            // Update particle position (positions are relative to the object's center)
+            positions.setX(i, x);
+            positions.setY(i, y);
+            positions.setZ(i, z);
+        }
+        
+        // Mark positions as needing update
+        positions.needsUpdate = true;
     }
     
     // Rotation speed controlled by pillstepper
@@ -2507,6 +2781,14 @@ function animate() {
     
     // Update scene objects (for leader line recalculation)
     sceneManager.update();
+    
+    // Check for sun-nucleus alignment and trigger eclipse
+    const isAligned = checkSunNucleusAlignment();
+    if (isAligned) {
+        console.log('Calling triggerSunEclipse()');
+        triggerSunEclipse();
+    }
+    
     
     renderer.render(scene, camera);
 }

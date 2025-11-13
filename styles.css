@@ -837,9 +837,10 @@ body {
         display: flex;
     }
     
-    #canvas-container {
+    /* Removed canvas dimming - was causing dark overlay issue */
+    /* #canvas-container {
         opacity: 0.3;
-    }
+    } */
 }
 
 /* Sun animation styles */
