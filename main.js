@@ -879,18 +879,18 @@ sceneManager.addObject({
 // Add 12 astrological symbols in low orbit, shallow outer space (between planes 3 and 4)
 // Plane 3 is at Y = 5.0, Plane 4 is at Y = 7.5, so midpoint is Y = 6.25
 const astrologicalImagePaths = [
-    'assets/zodiac/aries.png',
-    'assets/zodiac/taurus.png',
-    'assets/zodiac/gemini.png',
-    'assets/zodiac/cancer.png',
-    'assets/zodiac/leo.png',
-    'assets/zodiac/virgo.png',
-    'assets/zodiac/libra.png',
-    'assets/zodiac/scorpio.png',
-    'assets/zodiac/sagittarius.png',
-    'assets/zodiac/capricorn.png',
-    'assets/zodiac/aquarius.png',
-    'assets/zodiac/pisces.png'
+    '/zodiac/aries.png',
+    '/zodiac/taurus.png',
+    '/zodiac/gemini.png',
+    '/zodiac/cancer.png',
+    '/zodiac/leo.png',
+    '/zodiac/virgo.png',
+    '/zodiac/libra.png',
+    '/zodiac/scorpio.png',
+    '/zodiac/sagittarius.png',
+    '/zodiac/capricorn.png',
+    '/zodiac/aquarius.png',
+    '/zodiac/pisces.png'
 ]; // Image paths for zodiac signs: Aries, Taurus, Gemini, Cancer, Leo, Virgo, Libra, Scorpio, Sagittarius, Capricorn, Aquarius, Pisces
 const astroOrbitRadius = 6.0; // Much larger radius for wider spread
 const astroOrbitalSpeed = 0.0035; // Reduced orbital speed (half of original 0.007)
