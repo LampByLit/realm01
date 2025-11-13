@@ -1750,6 +1750,23 @@ sceneManager.addObject({
     lineType: null // No line
 });
 
+// Add flames at fire corner of plane 3
+const plane3HalfSize = planeSize / 2; // 4
+const plane3FireCornerX = plane3HalfSize - 0.3; // Bottom-right corner X
+const plane3FireCornerZ = plane3HalfSize - 0.3; // Bottom-right corner Z
+
+sceneManager.addObject({
+    name: 'flames',
+    type: 'flames',
+    position: [plane3FireCornerX, (3 - 1) * spacing, plane3FireCornerZ], // At plane 3
+    size: 0.15, // Much smaller size
+    region: '3b', // Above plane 3 (top side)
+    bindingType: 'relative',
+    planeIndex: 3,
+    offset: 0, // At the plane
+    lineType: null // No label
+});
+
 // Add second sun - metallic blue sphere, far away on outer edge but much lower
 const blueSunOrbitRadius = 15; // Same distance as original sun (very far out at the edge)
 const blueSunOrbitalSpeed = 0.001; // Slow orbital speed
@@ -2133,25 +2150,26 @@ function checkSunNucleusAlignment() {
         return false;
     }
     
-    // Check if sun is crossing the center Y axis (X position near 0)
-    // Camera is at (0, 2, 10), so when sun's X is near 0, it's opposite the camera
+    // Check if sun's center is passing through the middle (X position at 0)
+    // Camera is at (0, 2, 10), so when sun's X is 0, it's opposite the camera
     const sunX = sunObject.position.x;
-    const threshold = 0.5; // Trigger when sun is within 0.5 units of center
+    const threshold = 0.1; // Small threshold for center detection
     
-    // Check if sun crossed from one side to the other (to trigger once per crossing)
+    // Check if sun crossed from one side to the other, passing through center
     if (typeof window.lastSunX === 'undefined') {
         window.lastSunX = sunX;
         return false;
     }
     
-    // Check if sun crossed the center line (went from negative to positive or vice versa)
-    const crossedCenter = (window.lastSunX < -threshold && sunX >= -threshold) || 
-                          (window.lastSunX > threshold && sunX <= threshold);
+    // Check if sun's center crossed through X=0 (went from negative to positive or vice versa)
+    // This ensures the center passes through, not just the edge
+    const crossedCenter = (window.lastSunX < 0 && sunX >= 0) || 
+                          (window.lastSunX > 0 && sunX <= 0);
     
     window.lastSunX = sunX;
     
     if (crossedCenter) {
-        console.log('*** Sun crossed center axis! X=' + sunX.toFixed(2) + ' ***');
+        console.log('*** Sun center passed through middle! X=' + sunX.toFixed(2) + ' ***');
         return true;
     }
     
@@ -2177,7 +2195,7 @@ function triggerSunEclipse() {
     eclipseOverlay.style.backgroundColor = 'rgba(255, 255, 255, 0)';
     eclipseOverlay.style.pointerEvents = 'none';
     eclipseOverlay.style.zIndex = '9999';
-    eclipseOverlay.style.transition = 'background-color 1s ease-in-out';
+    eclipseOverlay.style.transition = 'background-color 2.5s ease-in-out';
     
     if (!body) {
         console.error('body element not found!');
@@ -2188,24 +2206,25 @@ function triggerSunEclipse() {
     body.appendChild(eclipseOverlay);
     console.log('Eclipse overlay added to body');
     
-    // Fade to white over 1 second
+    // Fade to white over 2.5 seconds
     setTimeout(() => {
         if (eclipseOverlay) {
+            eclipseOverlay.style.transition = 'background-color 2.5s ease-in-out';
             eclipseOverlay.style.backgroundColor = 'rgba(255, 255, 255, 1)';
             console.log('Eclipse fading to white');
         }
     }, 10);
     
-    // Fade back to transparent over 1 second (starts at 1 second, completes at 2 seconds)
+    // Fade back to transparent over 2.5 seconds (starts at 2.5 seconds, completes at 5 seconds)
     setTimeout(() => {
         if (eclipseOverlay) {
-            eclipseOverlay.style.transition = 'background-color 1s ease-in-out';
+            eclipseOverlay.style.transition = 'background-color 2.5s ease-in-out';
             eclipseOverlay.style.backgroundColor = 'rgba(255, 255, 255, 0)';
             console.log('Eclipse fading back');
         }
-    }, 1000);
+    }, 2500);
     
-    // Remove overlay and reset state after animation completes (2 seconds total)
+    // Remove overlay and reset state after animation completes (5 seconds total)
     setTimeout(() => {
         if (eclipseOverlay && eclipseOverlay.parentNode) {
             eclipseOverlay.parentNode.removeChild(eclipseOverlay);
@@ -2217,7 +2236,7 @@ function triggerSunEclipse() {
             isEclipseActive = false;
             console.log('Eclipse state reset');
         }, 100);
-    }, 2000);
+    }, 5000);
 }
 
 function animate() {

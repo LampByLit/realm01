@@ -108,6 +108,13 @@ export class SceneObject {
             this.orbElement = null;
             this.crystalElement = null;
             this.cloudElement = null;
+        } else if (config.type === 'flames') {
+            this.flamesElement = this.createFlames(config);
+            this.mesh = null; // No 3D mesh for flames type
+            this.orbElement = null;
+            this.crystalElement = null;
+            this.cloudElement = null;
+            this.sunElement = null;
         } else if (config.type === 'blackhole') {
             this.mesh = this.createBlackHole(config);
             this.orbElement = null;
@@ -454,6 +461,38 @@ export class SceneObject {
         }
         
         return sunWrapper;
+    }
+    
+    createFlames(config) {
+        // Create HTML element for CSS fire animation
+        const flamesWrapper = document.createElement('div');
+        flamesWrapper.className = 'fire-wrapper';
+        flamesWrapper.style.position = 'fixed';
+        flamesWrapper.style.pointerEvents = 'none';
+        flamesWrapper.style.zIndex = '10';
+        flamesWrapper.style.transformOrigin = 'center center';
+        
+        const fire = document.createElement('div');
+        fire.className = 'fire';
+        
+        // Create 50 particle elements for the fire animation with chaotic properties
+        for (let i = 1; i <= 50; i++) {
+            const particle = document.createElement('div');
+            particle.className = 'particle';
+            // Add random horizontal drift for more chaos
+            const randomX = Math.random();
+            particle.style.setProperty('--random-x', randomX);
+            fire.appendChild(particle);
+        }
+        
+        flamesWrapper.appendChild(fire);
+        document.body.appendChild(flamesWrapper);
+        
+        // Store size for later calculations
+        this.flamesSize = config.size || 1.0;
+        this.flamesWrapper = flamesWrapper;
+        
+        return flamesWrapper;
     }
     
     createBlackHole(config) {
@@ -3298,6 +3337,10 @@ void main() {
             this.updateCloudPosition();
             this.updateCloudAnimation();
         }
+        // Update flames position if it's a flames type
+        if (this.flamesElement) {
+            this.updateFlamesPosition();
+        }
         // Update SVG position if it's an SVG type
         if (this.svgElement) {
             this.updateSVGPosition();
@@ -3592,6 +3635,40 @@ void main() {
         this.sunWrapper.style.transform = `translate(-50%, -50%)`;
     }
     
+    updateFlamesPosition() {
+        if (!this.flamesElement || !this.flamesWrapper) return;
+        
+        // Get world position (accounting for group rotation)
+        const worldPosition = new THREE.Vector3();
+        if (this.mesh) {
+            this.mesh.getWorldPosition(worldPosition);
+        } else {
+            // For flames without mesh, use position directly
+            worldPosition.copy(this.position);
+        }
+        
+        // Project to screen coordinates
+        const vector = worldPosition.clone();
+        vector.project(this.camera);
+        
+        // Convert NDC to screen coordinates
+        const x = (vector.x * 0.5 + 0.5) * window.innerWidth;
+        const y = (-vector.y * 0.5 + 0.5) * window.innerHeight;
+        
+        // Calculate size based on distance from camera
+        const distance = this.camera.position.distanceTo(worldPosition);
+        // Convert world size to screen size (approximate)
+        const fov = this.camera.fov * (Math.PI / 180);
+        const screenSize = (this.flamesSize / distance) * (window.innerHeight / (2 * Math.tan(fov / 2))) * 2;
+        
+        // Apply transform
+        this.flamesWrapper.style.left = `${x}px`;
+        this.flamesWrapper.style.top = `${y}px`;
+        this.flamesWrapper.style.width = `${screenSize}px`;
+        this.flamesWrapper.style.height = `${screenSize}px`;
+        this.flamesWrapper.style.transform = `translate(-50%, -50%)`;
+    }
+    
     updateCloudPosition() {
         // Use cloudWrapper if available, otherwise cloudElement
         const wrapper = this.cloudWrapper || this.cloudElement;
@@ -3788,6 +3865,15 @@ void main() {
             this.mesh.userData.isCloudDummy = true;
         }
         
+        // For flames type, create a dummy invisible mesh to track position in group
+        if (this.flamesElement && !this.mesh) {
+            // Create a tiny invisible sphere to track position
+            const geometry = new THREE.SphereGeometry(0.01, 8, 8);
+            const material = new THREE.MeshBasicMaterial({ visible: false });
+            this.mesh = new THREE.Mesh(geometry, material);
+            this.mesh.position.copy(this.position);
+        }
+        
         // For SVG type, create a dummy invisible mesh to track position in group
         if (this.svgElement && !this.mesh) {
             // Create a tiny invisible sphere to track position
@@ -3835,6 +3921,10 @@ void main() {
         if (this.sunElement && this.sunWrapper && this.sunWrapper.parentNode) {
             // Remove sun HTML element from DOM
             this.sunWrapper.parentNode.removeChild(this.sunWrapper);
+        }
+        if (this.flamesElement && this.flamesWrapper && this.flamesWrapper.parentNode) {
+            // Remove flames HTML element from DOM
+            this.flamesWrapper.parentNode.removeChild(this.flamesWrapper);
         }
         if (this.cloudElement && this.cloudWrapper && this.cloudWrapper.parentNode) {
             // Remove cloud HTML element from DOM
