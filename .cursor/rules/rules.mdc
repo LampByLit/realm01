@@ -1,0 +1,76 @@
+# Project Rules: Realm Editor
+
+## Core Concept
+
+This is a **web sculpture** - an interactive "realm editor" that creates rich, detailed worlds. The project uses stacked horizontal grid planes to represent miniature landscapes:
+
+- **Top of each grid** = Floor for that world
+- **Bottom of each grid** = Sky for the grid beneath it
+- All planes are rendered as colored grids (using `THREE.GridHelper`) with emissive materials
+
+Objects exist between and on these grids, creating a multi-layered realm. All objects use mirror materials for reflections.
+
+## Architecture
+
+### SceneObject / SceneManager Pattern
+
+- **SceneObject**: Encapsulates a 3D object with its mesh, label, and line
+- **SceneManager**: Organizes objects by plane regions (0a, 0b, 1a, 1b, etc.)
+- Objects are stored both by region (Map) and in a flat array for iteration
+
+### Binding System
+
+Objects can be bound to planes in three ways:
+- **`relative`**: Fixed offset from a single plane
+- **`elastic`**: Percentage position between two planes
+- **`free`**: Fixed world coordinates, no binding
+
+## Line Types
+
+Four distinct line types, each with different behaviors:
+
+1. **`leader`**: Extends to nearest screen edge, uses 3D sprite labels, rotates with planes
+2. **`laser`**: Fixed angle on x,z plane, uses 3D sprite labels, rotates with planes
+3. **`lefty`**: Connects to HTML label that follows object's screen Y position, line in world space (doesn't rotate)
+4. **`lefthand`**: Connects to fixed-position HTML label (percentage-based), line in world space (doesn't rotate)
+
+**Key Technical Detail**: `lefty` and `lefthand` lines are added directly to the scene (not `planesGroup`) to avoid rotation. They use world coordinates and update each frame.
+
+## Label System
+
+- **Sprite labels** (leader/laser): 3D sprites that rotate with objects
+  - Labels are dynamically sized based on text width to prevent cutoff
+  - Scale maintains aspect ratio to prevent squishing (baseScale: 0.3)
+- **HTML labels** (lefty/lefthand): Fixed on screen, don't rotate
+- **Lefty labels**: Dynamically positioned based on object's screen Y
+- **Lefthand labels**: Fixed percentage position (0.0 = bottom, 1.0 = top) with auto-offset for multiple labels
+
+## Design Principles
+
+- **Line colors**: Default to white (`0xffffff`). Use `lineColor` property for special cases only
+- **Text**: All text is white
+- **Mobile**: Optimized for landscape orientation, forces landscape when possible
+- **Performance**: Reduced quality/complexity on mobile (no antialiasing, lower pixel ratio, slower rotation)
+
+## Naming Conventions
+
+- Line types use lowercase: `leader`, `laser`, `lefty`, `lefthand`
+- Binding types use lowercase: `relative`, `elastic`, `free`
+- Object names are typically uppercase in labels (handled by `.toUpperCase()`)
+
+## Key Technical Decisions
+
+- Lines terminate at labels (120px from left edge) - no background occlusion needed
+- World space calculations for lefty/lefthand lines ensure they don't rotate
+- Lefthand labels at top position (1.0) are positioned at 24px to match menu button
+- Mobile detection uses user agent string, then applies optimizations
+- **Planes**: All planes are grids (`THREE.GridHelper`) with 20 divisions, colored and emissive
+- **Objects**: All objects use mirror materials (transmission: 0.0, roughness: 0.0, metalness: 1.0, ior: 1.5)
+- **Mesh Types**: Supports `sphere`, `box`, `torus`, and `pyramid` (pyramid uses `ConeGeometry` with 4 segments)
+- **Environment Map**: Generated from scene using PMREMGenerator for reflections on mirror objects
+
+## Future Considerations
+
+- The structure supports adding more line types, binding types, and object types
+- Region system allows querying objects by plane location
+- Label positioning systems (dynamic vs fixed) can be extended

@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="theme-color" content="#000000">
+    <link rel="icon" type="image/png" href="/favicon.png">
+    <link rel="manifest" href="/manifest.json">
+    <title>EX LAMINÆ</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div id="canvas-container"></div>
+    <div class="night" id="night-container"></div>
+    
+    <!-- Object Info Box (bottom right on click) -->
+    <div id="object-info-box" class="object-info-box">
+        <div id="info-box-content"></div>
+        <button id="travel-button" class="travel-button" style="display: none;">VISIT MARS</button>
+    </div>
+    
+    <!-- Travel Indicator (bottom right) -->
+    <div id="travel-indicator" class="travel-indicator">TRAVELLING</div>
+    
+    <!-- Toggle Buttons -->
+    <button id="panel-toggle" class="panel-toggle" aria-label="Toggle control panel">VIEW</button>
+    <button id="inventory-toggle" class="panel-toggle inventory-toggle" aria-label="Toggle inventory">INVENTORY</button>
+    <button id="explore-toggle" class="panel-toggle explore-toggle" aria-label="Toggle explore">EXPLORE</button>
+    
+    <!-- Control Panel -->
+    <div id="control-panel" class="control-panel">
+        <div class="panel-header">
+            <button id="panel-close" class="panel-close" aria-label="Close panel">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M18 6L6 18M6 6l12 12"/>
+                </svg>
+            </button>
+        </div>
+        <div class="panel-content">
+            <!-- Controls will go here -->
+        </div>
+    </div>
+    
+    <!-- Inventory Panel -->
+    <div id="inventory-panel" class="control-panel inventory-panel">
+        <div class="panel-header">
+            <button id="inventory-close" class="panel-close" aria-label="Close inventory">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M18 6L6 18M6 6l12 12"/>
+                </svg>
+            </button>
+        </div>
+        <div class="panel-content">
+            <div id="inventory-items" class="inventory-items"></div>
+            <div id="inventory-description" class="inventory-description"></div>
+        </div>
+    </div>
+    
+    <!-- Explore Panel -->
+    <div id="explore-panel" class="control-panel explore-panel">
+        <div class="panel-header">
+            <h2 id="explore-title" class="explore-title">EARTH</h2>
+            <button id="explore-close" class="panel-close" aria-label="Close explore">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M18 6L6 18M6 6l12 12"/>
+                </svg>
+            </button>
+        </div>
+        <div class="panel-content">
+            <div id="explore-content" class="explore-content">
+                <!-- Content will be dynamically generated based on location -->
+            </div>
+        </div>
+    </div>
+    
+    <script type="module" src="/pillstepper.js"></script>
+    <script type="module" src="/main.js"></script>
+</body>
+</html>
+
