@@ -7,30 +7,6 @@ export function createAllObjects(sceneManager, spacing, planeSize, planesGroup) 
     const orbitRadius = 1.5; // Distance "out a bit" from corners
     const orbitalSpeed = 0.007; // Orbital speed
 
-    // Earth symbol 🜃 - top-right corner (same corner as waterfall)
-    const earthCornerX = plane2HalfSize - 0.3; // Same as waterfall corner
-    const earthCornerZ = -plane2HalfSize + 0.3;
-    const earthStartAngle = Math.atan2(earthCornerZ, earthCornerX); // Angle to corner
-    const earthOrbitX = earthCornerX + Math.cos(earthStartAngle) * orbitRadius;
-    const earthOrbitZ = earthCornerZ + Math.sin(earthStartAngle) * orbitRadius;
-
-    sceneManager.addObject({
-        name: 'EARTH',
-        type: 'symbol',
-        symbol: '🜃',
-        position: [earthOrbitX, (2 - 1) * spacing - 0.5, earthOrbitZ], // Below plane 2
-        size: 0.4,
-        region: '2a', // Below plane 2
-        bindingType: 'relative',
-        planeIndex: 2,
-        offset: -0.5, // Below the plane
-        lineType: null, // No line
-        orbitalSpeed: orbitalSpeed,
-        orbitalRadius: orbitRadius,
-        orbitalCenterX: earthCornerX,
-        orbitalCenterZ: earthCornerZ,
-        orbitalAngle: earthStartAngle
-    });
 
     // Add Milky Way galaxy - positioned more to one side, away from corner
     const milkyWayX = plane2HalfSize - 1.5; // More toward the center, away from corner
@@ -48,7 +24,10 @@ export function createAllObjects(sceneManager, spacing, planeSize, planesGroup) 
         rotationSpeed: 0.003, // Slower rotation speed
         maxRadius: 2.5, // Larger spread radius
         lineColor: 0xffffff,
-        lineOpacity: 0.5
+        lineOpacity: 0.5,
+        infoboxContent: 'MILKY WAY\n\nThis is placeholder text for the Milky Way galaxy. More information will be added here.',
+        isGreenlisted: false,
+        exploreContent: 'Exploring MILKY WAY...\n\nThe Milky Way is the galaxy that contains our Solar System.'
     });
 
     // Add second galaxy at water corner (top-left) - perpendicular angle
@@ -68,7 +47,10 @@ export function createAllObjects(sceneManager, spacing, planeSize, planesGroup) 
         maxRadius: 3.5, // Even more spread out
         perpendicularAngle: true, // Rotate 90 degrees for perpendicular orientation
         lineColor: 0xffffff,
-        lineOpacity: 0.5
+        lineOpacity: 0.5,
+        infoboxContent: 'ANDROMEDA\n\nThis is placeholder text for the Andromeda galaxy. More information will be added here.',
+        isGreenlisted: false,
+        exploreContent: 'Exploring ANDROMEDA...\n\nAndromeda is the closest major galaxy to the Milky Way.'
     });
 
     // Air symbol 🜁 - bottom-left corner (opposite corner)
@@ -111,7 +93,10 @@ export function createAllObjects(sceneManager, spacing, planeSize, planesGroup) 
         lineType: 'leader', // Leader line extends to nearest screen edge
         lineColor: 0xffffff,
         lineOpacity: 0.5,
-        cycleSpeed: 0.02 // Cycle speed
+        cycleSpeed: 0.02, // Cycle speed
+        infoboxContent: 'MOON\n\nMoon is a Human outpost, and serves as a secret trade colony for the Terrestrial Planets.',
+        isGreenlisted: true,
+        exploreContent: 'On Moon, you can buy/sell your spirit for $1000'
     });
 
     // Water symbol 🜄 - top-left corner
@@ -227,7 +212,10 @@ export function createAllObjects(sceneManager, spacing, planeSize, planesGroup) 
         perpendicularAngle: true, // Perpendicular orientation
         twinkleSpeed: 0.05, // Faster twinkling than Andromeda
         lineColor: 0xffffff,
-        lineOpacity: 0.5
+        lineOpacity: 0.5,
+        infoboxContent: 'LARGE MAGELLANIC CLOUD\n\nThis is placeholder text for the Large Magellanic Cloud. More information will be added here.',
+        isGreenlisted: false,
+        exploreContent: 'Exploring LARGE MAGELLANIC CLOUD...\n\nThe Large Magellanic Cloud is a satellite galaxy of the Milky Way.'
     });
 
     // Add Mars - small red sphere in random area from 0b to 2a
@@ -262,7 +250,10 @@ export function createAllObjects(sceneManager, spacing, planeSize, planesGroup) 
         lineType: 'laser', // Laser line points outward using angle
         angle: marsAngle, // Angle pointing outward from center
         lineColor: 0xffffff,
-        lineOpacity: 0.5
+        lineOpacity: 0.5,
+        infoboxContent: 'MARS\n\nMars is home to the Martians, and is ruled by <span style="color: red;">Elon</span>, to whom you can sell your soul.',
+        isGreenlisted: true,
+        exploreContent: 'On Mars, you can buy/sell your soul for $1000'
     });
 
     // Add Venus - small pale sphere in random area from 0b to 2b (exactly like Mars but pale colored)
@@ -299,7 +290,11 @@ export function createAllObjects(sceneManager, spacing, planeSize, planesGroup) 
         lineType: 'laser', // Laser line points outward using angle
         angle: venusAngle, // Angle pointing outward from center
         lineColor: 0xffffff,
-        lineOpacity: 0.5
+        lineOpacity: 0.5,
+        infoboxContent: 'VENUS\n\nVenus is a Martian outpost, and serves as a direct source for Exotic Material.',
+        isGreenlisted: true,
+        exploreContent: 'On Venus, you can donate 1 Exotic for Sacred Knowledge.',
+        hasDonatedExotic: false // Track donation state
     });
 
     // Add the orb object between planes 2 and 3 (region 2b) - RELATIVE to plane 2
@@ -345,7 +340,10 @@ export function createAllObjects(sceneManager, spacing, planeSize, planesGroup) 
         lineType: 'laser', // Laser line points outward using angle
         angle: jupiterAngle, // Angle pointing outward from center
         lineColor: 0xffffff,
-        lineOpacity: 0.5
+        lineOpacity: 0.5,
+        infoboxContent: 'JUPITER\n\nJupiter currently is host to the Anunnaki, who will unlock Sacred Knowledge in exchange for gold.',
+        isGreenlisted: false,
+        exploreContent: 'Pledge 5 Gold to the Anunnaki'
     });
 
     // Add Mercury - small glass sphere in random area from 0b to 2a
@@ -382,7 +380,10 @@ export function createAllObjects(sceneManager, spacing, planeSize, planesGroup) 
         lineType: 'laser', // Laser line points outward using angle
         angle: mercuryAngle, // Angle pointing outward from center
         lineColor: 0xffffff,
-        lineOpacity: 0.5
+        lineOpacity: 0.5,
+        infoboxContent: 'MERCURY\n\nMercury is a Martian outpost and serves as Portal from Inner Planets to Outer Planets.',
+        isGreenlisted: false,
+        exploreContent: 'Mercury is in Prograde or Retrograde'
     });
 
     // Add Uranus - glass sphere with vertical rings in random area from 0b to 2a
@@ -424,7 +425,10 @@ export function createAllObjects(sceneManager, spacing, planeSize, planesGroup) 
         lineType: 'laser', // Laser line points outward using angle
         angle: uranusAngle, // Angle pointing outward from center
         lineColor: 0xffffff,
-        lineOpacity: 0.5
+        lineOpacity: 0.5,
+        infoboxContent: 'URANUS\n\nThis is placeholder text for Uranus. More information will be added here.',
+        isGreenlisted: false,
+        exploreContent: 'Exploring URANUS...\n\nUranus is the seventh planet from the Sun and has a unique sideways rotation.'
     });
 
     // Add Neptune - small blue sphere in random area from 0b to 2a
@@ -459,7 +463,10 @@ export function createAllObjects(sceneManager, spacing, planeSize, planesGroup) 
         lineType: 'laser', // Laser line points outward using angle
         angle: neptuneAngle, // Angle pointing outward from center
         lineColor: 0xffffff,
-        lineOpacity: 0.5
+        lineOpacity: 0.5,
+        infoboxContent: 'NEPTUNE\n\nThis is placeholder text for Neptune. More information will be added here.',
+        isGreenlisted: false,
+        exploreContent: 'Pay $100 to Party on Neptune'
     });
 
     // Add black hole (Gaia BH1) in area 0b (top side of plane 0) at random location
@@ -483,7 +490,10 @@ export function createAllObjects(sceneManager, spacing, planeSize, planesGroup) 
         lineType: 'laser',
         angle: gaiaBH1Angle, // Angle pointing outward from center
         lineColor: 0xffffff,
-        lineOpacity: 0.5
+        lineOpacity: 0.5,
+        infoboxContent: 'GAIA BH1\n\nThis is placeholder text for Gaia BH1. More information will be added here.',
+        isGreenlisted: false,
+        exploreContent: 'Exploring GAIA BH1...\n\nGaia BH1 is a black hole discovered by the Gaia space observatory.'
     });
 
     // Add 4 unlabeled black planets on outer boundaries of inner universe
@@ -540,7 +550,10 @@ export function createAllObjects(sceneManager, spacing, planeSize, planesGroup) 
         lineType: 'lefthand', // Lefthand line with fixed position label
         lefthandLabelPosition: 0.0, // Bottom position (0.0 = bottom)
         lineColor: 0xffffff,
-        lineOpacity: 0.5
+        lineOpacity: 0.5,
+        infoboxContent: 'ROOT\n\nThis is placeholder text for the Root. More information will be added here.',
+        isGreenlisted: false,
+        exploreContent: 'Exploring ROOT...\n\nThe Root represents the foundation and origin of all things.'
     });
 
     // Add particle sphere object in region 0b (top side of plane 0) at random location - FREE
@@ -559,7 +572,10 @@ export function createAllObjects(sceneManager, spacing, planeSize, planesGroup) 
         lineType: 'laser',
         angle: zetaReticuliAngle, // Angle pointing outward from center
         lineColor: 0xffffff,
-        lineOpacity: 0.5
+        lineOpacity: 0.5,
+        infoboxContent: 'ZETA RETICULI\n\nThis is placeholder text for Zeta Reticuli. More information will be added here.',
+        isGreenlisted: false,
+        exploreContent: 'Exploring ZETA RETICULI...\n\nZeta Reticuli is a binary star system in the constellation Reticulum.'
     });
 
     // Add combined Messier 87 (glowing region + black hole) in area 0b, positioned in outer space
@@ -586,7 +602,10 @@ export function createAllObjects(sceneManager, spacing, planeSize, planesGroup) 
         lineType: 'laser',
         angle: m87Angle, // Angle pointing outward from center
         lineColor: 0xffffff,
-        lineOpacity: 0.5
+        lineOpacity: 0.5,
+        infoboxContent: 'MESSIER 87\n\nThis is placeholder text for Messier 87. More information will be added here.',
+        isGreenlisted: false,
+        exploreContent: 'Exploring MESSIER 87...\n\nMessier 87 is a supergiant elliptical galaxy in the constellation Virgo.'
     });
 
     // Create M87 black hole at the center of Messier 87 (same position)
@@ -673,7 +692,10 @@ export function createAllObjects(sceneManager, spacing, planeSize, planesGroup) 
         percentage: 0.4, // 40% of the way from plane 1 to plane 2 (keeps it away from both planes)
         lineType: 'leader',
         lineColor: 0xffffff,
-        lineOpacity: 0.5
+        lineOpacity: 0.5,
+        infoboxContent: 'PLEIADES\n\nThis is placeholder text for the Pleiades. More information will be added here.',
+        isGreenlisted: false,
+        exploreContent: 'Exploring PLEIADES...\n\nThe Pleiades is an open star cluster in the constellation Taurus.'
     });
 
     // Add a test object in the top-left of area 2b - ELASTIC between planes 2 and 3
@@ -696,7 +718,10 @@ export function createAllObjects(sceneManager, spacing, planeSize, planesGroup) 
         roughness: 0.0, // Perfectly smooth for mirror reflection
         ior: 1.5, // Standard for mirrors
         metalness: 1.0, // Fully metallic for mirror
-        emissiveIntensity: 0.0 // No glow
+        emissiveIntensity: 0.0, // No glow
+        infoboxContent: 'MONOLITH\n\nThis is placeholder text for the Monolith. More information will be added here.',
+        isGreenlisted: false,
+        exploreContent: 'Exploring MONOLITH...\n\nThe Monolith represents an enigmatic and mysterious structure.'
     });
 
     // Add cone cluster in area 2b at random location - ELASTIC between planes 2 and 3
@@ -734,12 +759,15 @@ export function createAllObjects(sceneManager, spacing, planeSize, planesGroup) 
         transmission: 0.0, // Not transparent
         roughness: 0.0, // Perfectly smooth for mirror reflection
         ior: 1.5, // Standard for mirrors
-        metalness: 1.0 // Fully metallic for mirror
+        metalness: 1.0, // Fully metallic for mirror
+        infoboxContent: 'STATION\n\nThis is placeholder text for the Station. More information will be added here.',
+        isGreenlisted: false,
+        exploreContent: 'Exploring STATION...\n\nThe Station is a mysterious orbital facility.'
     });
 
-    // Add a test object on plane 2a (bottom side of plane 2) - ELASTIC with LEFTY line
+    // Earth - mirror ball on plane 2a (bottom side of plane 2) - ELASTIC with LEFTY line
     sceneManager.addObject({
-        name: 'earth',
+        name: 'EARTH',
         type: 'sphere',
         position: [2, 1.25, -2], // Initial position (will be updated by binding)
         radius: 0.25,
@@ -757,7 +785,10 @@ export function createAllObjects(sceneManager, spacing, planeSize, planesGroup) 
         roughness: 0.0, // Perfectly smooth for mirror reflection
         ior: 1.5, // Standard for mirrors
         metalness: 1.0, // Fully metallic for mirror
-        emissiveIntensity: 0.0 // No glow
+        emissiveIntensity: 0.0, // No glow
+        infoboxContent: 'EARTH\n\nEarth is your home, and serves as a critical hub, temple, and battleground for all the Universe.',
+        isGreenlisted: true,
+        exploreContent: 'On Earth, you can buy/sell your body for $1000'
     });
 
     // Add crown on 4b (top side of plane 4) - RELATIVE to plane 4, always on top of highest plane
@@ -781,7 +812,10 @@ export function createAllObjects(sceneManager, spacing, planeSize, planesGroup) 
         roughness: 0.0, // Perfectly smooth for mirror reflection
         ior: 1.5, // Standard for mirrors
         metalness: 1.0, // Fully metallic for mirror
-        emissiveIntensity: 0.0 // No glow
+        emissiveIntensity: 0.0, // No glow
+        infoboxContent: 'CROWN\n\nThis is placeholder text for the Crown. More information will be added here.',
+        isGreenlisted: false,
+        exploreContent: 'Exploring CROWN...\n\nThe Crown represents the pinnacle of achievement and enlightenment.'
     });
 
     // Add Pluto - positioned far outside the planes structure
@@ -801,7 +835,10 @@ export function createAllObjects(sceneManager, spacing, planeSize, planesGroup) 
         roughness: 0.1, // Slightly rough
         ior: 1.5,
         metalness: 0.3, // Lower metalness so black base color shows through
-        emissiveIntensity: 0.0 // No glow
+        emissiveIntensity: 0.0, // No glow
+        infoboxContent: 'PLUTO\n\nThis is placeholder text for Pluto. More information will be added here.',
+        isGreenlisted: false,
+        exploreContent: 'Exploring PLUTO...\n\nPluto is a dwarf planet in the Kuiper belt.'
     });
 
     // Add clouds in area 4b (bottom side of top plane) - ELASTIC between planes 3 and 4
@@ -1015,7 +1052,10 @@ export function createAllObjects(sceneManager, spacing, planeSize, planesGroup) 
         offset: 1.25, // 1.25 units above plane 0
         lineType: 'leader',
         lineColor: 0xffffff,
-        lineOpacity: 0.5
+        lineOpacity: 0.5,
+        infoboxContent: 'BLACK CUBE\n\nThis is placeholder text for the Black Cube. More information will be added here.',
+        isGreenlisted: false,
+        exploreContent: 'Sacrifice 9 Slaves to Moloch.'
     });
 
     // Add the sun orbiting at the very edge of the universe
@@ -1116,7 +1156,10 @@ export function createAllObjects(sceneManager, spacing, planeSize, planesGroup) 
         bindingType: 'free',
         lineType: 'leader', // Leader line extends to nearest screen edge
         lineColor: 0xffffff,
-        lineOpacity: 0.5
+        lineOpacity: 0.5,
+        infoboxContent: 'SATURN\n\nSaturn is a Satanic portal to the Black Cube.',
+        isGreenlisted: false,
+        exploreContent: 'Pledge your Soul to Saturn.'
     });
 
     // Add supernova object at same level as nucleus (y=3.75) but far in outer space
@@ -1136,7 +1179,10 @@ export function createAllObjects(sceneManager, spacing, planeSize, planesGroup) 
         bindingType: 'free',
         lineType: 'leader', // Leader line extends to nearest screen edge
         lineColor: 0xffffff,
-        lineOpacity: 0.5
+        lineOpacity: 0.5,
+        infoboxContent: 'SUPERNOVA\n\nThis is placeholder text for the Supernova. More information will be added here.',
+        isGreenlisted: false,
+        exploreContent: 'Exploring SUPERNOVA...\n\nA supernova is a powerful and luminous stellar explosion.'
     });
 
     // Add Atlantis animated SVG in area 0b (top side of plane 0) on the outskirts
@@ -1216,7 +1262,10 @@ export function createAllObjects(sceneManager, spacing, planeSize, planesGroup) 
         lineType: 'laser',
         angle: atlantisAngle, // Angle pointing outward from center
         lineColor: 0xffffff,
-        lineOpacity: 0.5
+        lineOpacity: 0.5,
+        infoboxContent: 'ATLANTIS\n\nThis is placeholder text for Atlantis. More information will be added here.',
+        isGreenlisted: false,
+        exploreContent: 'Exploring ATLANTIS...\n\nAtlantis is a mythical island civilization that sank into the sea.'
     });
 
     // Add 5 randomly placed very small black circles around the interior of the universe

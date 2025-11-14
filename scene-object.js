@@ -13,6 +13,12 @@ export class SceneObject {
         this.sceneManager = sceneManager;
         this.planesGroup = null; // Will be set when added to group
         
+        // Store infobox and explore content for click handling
+        this.infoboxContent = config.infoboxContent;
+        this.isGreenlisted = config.isGreenlisted;
+        this.exploreContent = config.exploreContent;
+        this.hasDonatedExotic = config.hasDonatedExotic || false;
+        
         // Binding system: 'relative', 'elastic', or 'free'
         this.bindingType = config.bindingType || 'free';
         

@@ -17,6 +17,16 @@ export class InventoryManager {
                 name: 'Spirit',
                 plural: 'Spirits',
                 description: 'The animating force that connects body and soul. The bridge between material and ethereal.'
+            },
+            'light': {
+                name: 'Light',
+                plural: 'Light',
+                description: 'The pure essence that exists when body, spirit, and soul are absent. Takes no space and cannot be stacked.'
+            },
+            'baby': {
+                name: 'Baby',
+                plural: 'Babies',
+                description: 'A small human child, innocent and pure.'
             }
         };
         
@@ -24,14 +34,31 @@ export class InventoryManager {
         this.addItem('body', 1);
         this.addItem('soul', 1);
         this.addItem('spirit', 1);
+        
+        // Light is managed automatically, don't add it here
     }
     
     // Add item to inventory
     addItem(id, quantity = 1) {
+        // Prevent manually adding light (it's managed automatically)
+        if (id === 'light') {
+            return false;
+        }
+        
         const itemDef = this.itemDefinitions[id];
         if (!itemDef) {
             console.warn(`Item definition not found: ${id}`);
             return false;
+        }
+        
+        // Enforce maximum of 1 for body, soul, and spirit
+        const maxOneItems = ['body', 'soul', 'spirit'];
+        if (maxOneItems.includes(id)) {
+            const existingItem = this.items.find(item => item.id === id);
+            if (existingItem && existingItem.quantity >= 1) {
+                return false; // Already have maximum
+            }
+            quantity = 1; // Force quantity to 1
         }
         
         const existingItem = this.items.find(item => item.id === id);
@@ -44,11 +71,19 @@ export class InventoryManager {
             });
         }
         
+        // Update light status after adding item
+        this.updateLightStatus();
+        
         return true;
     }
     
     // Remove item from inventory
     removeItem(id, quantity = 1) {
+        // Prevent manually removing light (it's managed automatically)
+        if (id === 'light') {
+            return false;
+        }
+        
         const itemIndex = this.items.findIndex(item => item.id === id);
         if (itemIndex === -1) {
             return false;
@@ -60,6 +95,9 @@ export class InventoryManager {
         if (item.quantity <= 0) {
             this.items.splice(itemIndex, 1);
         }
+        
+        // Update light status after removing item
+        this.updateLightStatus();
         
         return true;
     }
@@ -109,6 +147,41 @@ export class InventoryManager {
     // Register new item definition (for future expansion)
     registerItem(id, definition) {
         this.itemDefinitions[id] = definition;
+    }
+    
+    // Check if player has any of body, spirit, or soul
+    hasBodySpiritOrSoul() {
+        return this.hasItem('body', 1) || this.hasItem('spirit', 1) || this.hasItem('soul', 1);
+    }
+    
+    // Update light status: add light if no body/spirit/soul, remove if any exist
+    updateLightStatus() {
+        const hasAny = this.hasBodySpiritOrSoul();
+        const hasLight = this.hasItem('light', 1);
+        
+        if (!hasAny && !hasLight) {
+            // No body/spirit/soul and no light - add light
+            const lightItem = this.items.find(item => item.id === 'light');
+            if (!lightItem) {
+                this.items.push({
+                    id: 'light',
+                    quantity: 1
+                });
+            } else {
+                lightItem.quantity = 1; // Ensure it's exactly 1
+            }
+        } else if (hasAny && hasLight) {
+            // Has body/spirit/soul and has light - remove light
+            const lightIndex = this.items.findIndex(item => item.id === 'light');
+            if (lightIndex !== -1) {
+                this.items.splice(lightIndex, 1);
+            }
+        }
+    }
+    
+    // Get inventory capacity used (light doesn't count)
+    getUsedCapacity() {
+        return this.items.filter(item => item.id !== 'light').length;
     }
 }
 

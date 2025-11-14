@@ -178,5 +178,30 @@ export class SceneManager {
             if (allIndex > -1) this.allObjects.splice(allIndex, 1);
         }
     }
+    
+    // Toggle visibility of all labels and lines
+    setLabelsAndLinesVisible(visible) {
+        this.allObjects.forEach(obj => {
+            // Hide/show label
+            if (obj.label) {
+                if (obj.label instanceof THREE.Sprite) {
+                    obj.label.visible = visible;
+                } else if (obj.label instanceof HTMLElement) {
+                    // HTML label (lefty or lefthand)
+                    obj.label.style.display = visible ? 'block' : 'none';
+                }
+            }
+            
+            // Hide/show line
+            if (obj.line) {
+                if (obj.line instanceof THREE.Line || obj.line instanceof THREE.LineSegments) {
+                    obj.line.visible = visible;
+                } else if (obj.line instanceof HTMLElement) {
+                    // HTML line (if any)
+                    obj.line.style.display = visible ? 'block' : 'none';
+                }
+            }
+        });
+    }
 }
 

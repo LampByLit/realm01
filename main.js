@@ -3,6 +3,9 @@ import { PillStepper } from './pillstepper.js';
 import { SceneManager } from './scene-manager.js';
 import { InventoryManager } from './inventory-manager.js';
 import { createAllObjects } from './objects.js';
+import { TradingGame } from './trading-game.js';
+import { TradingUI } from './trading-ui.js';
+import { ScoreManager } from './score-manager.js';
 
 // Scene setup
 const scene = new THREE.Scene();
@@ -719,6 +722,13 @@ planesGroup.add(innerStars); // Add to planesGroup so they rotate with the unive
 
 // Initialize Scene Manager
 const sceneManager = new SceneManager(scene, camera, renderer);
+
+// Initialize Trading Game
+const tradingGame = new TradingGame(sceneManager);
+const tradingUI = new TradingUI();
+
+// Make tradingGame available globally for UI updates
+window.tradingGame = tradingGame;
 
 // Travel system state
 let currentLocation = 'EARTH'; // Name of current location object (default to EARTH)
@@ -1560,6 +1570,17 @@ function animate() {
         triggerSunEclipse();
     }
     
+    // Update Mercury explore panel if open (throttled to every 500ms)
+    if (currentLocation && currentLocation.toUpperCase() === 'MERCURY') {
+        const explorePanelEl = document.getElementById('explore-panel');
+        if (explorePanelEl && explorePanelEl.classList.contains('open')) {
+            if (!window.lastMercuryUpdate || performance.now() - window.lastMercuryUpdate > 500) {
+                window.lastMercuryUpdate = performance.now();
+                renderExploreContent();
+            }
+        }
+    }
+    
     // Update travel animation
     if (travelState.isTraveling && travelState.spaceship) {
         const elapsed = performance.now() - travelState.startTime;
@@ -1621,26 +1642,57 @@ function animate() {
             );
             
             travelState.isTraveling = false;
-            currentLocation = travelState.destinationName; // Update current location
-            updateExplorePanel(); // Update explore panel when landing
+            const destinationName = travelState.destinationName;
             
-            console.log(`Travel complete! Arrived at ${travelState.destinationName}`);
-            console.log('Final spaceship position:', travelState.spaceship.position);
-            console.log('Destination position:', finalEndPos);
-            console.log('Distance difference:', travelState.spaceship.position.distanceTo(finalEndPos));
+            // Hide travel indicator
+            const travelIndicator = document.getElementById('travel-indicator');
+            if (travelIndicator) {
+                travelIndicator.classList.remove('show');
+            }
             
-            // Hide spaceship after a brief moment
-            setTimeout(() => {
-                if (travelState.spaceship) {
-                    travelState.spaceship.visible = false;
-                }
-            }, 500);
+            // Consume fuel and advance turn
+            if (tradingGame) {
+                const fuelCost = tradingGame.getFuelCost(destinationName);
+                tradingGame.consumeFuel(fuelCost);
+                tradingGame.advanceTurn(destinationName);
+            }
             
-            // Re-enable travel button
+            currentLocation = destinationName; // Update current location
+            
+            // Update trading game current location
+            if (tradingGame) {
+                tradingGame.currentLocation = destinationName;
+            }
+            
+            // Hide spaceship immediately
+            if (travelState.spaceship) {
+                travelState.spaceship.visible = false;
+                // Remove from scene after hiding
+                setTimeout(() => {
+                    if (travelState.spaceship && travelState.spaceship.parent) {
+                        travelState.spaceship.parent.remove(travelState.spaceship);
+                    }
+                }, 1000);
+            }
+            
+            // Clear travel state
+            travelState.spaceship = null;
+            travelState.destinationName = null;
+            
+            // Update explore panel when landing
+            updateExplorePanel();
+            
+            // Refresh inventory to update light status if needed
+            if (window.renderInventory) {
+                window.renderInventory();
+            }
+            
+            console.log(`Travel complete! Arrived at ${destinationName}`);
+            
+            // Re-enable travel button (will be updated when info box is shown)
             const travelButton = document.getElementById('travel-button');
             if (travelButton) {
                 travelButton.disabled = false;
-                travelButton.textContent = 'VISIT MARS';
             }
         }
     }
@@ -1650,23 +1702,107 @@ function animate() {
 
 animate();
 
+// Initialize steppers array early (will be populated later when pillsteppers are created)
+let steppers = [];
+
+// Helper function to check if an object is on the current greenlist
+// (considers frequency for Mercury - only greenlisted at frequency 6)
+// (considers frequency 7 for outer planets - unlocks earth, moon, mars, venus, mercury, saturn, jupiter, neptune, pluto)
+// (Black Cube is permanently greenlisted once Saturn Worshipper achievement is earned)
+function isOnCurrentGreenlist(objectName, baseIsGreenlisted) {
+    // Check frequency pillstepper
+    let frequencyValue = 5; // Default to 5
+    if (steppers && steppers[4]) {
+        frequencyValue = steppers[4].getValue();
+    }
+    
+    // Black Cube is permanently greenlisted once Saturn Worshipper achievement is earned
+    if (objectName && objectName.toLowerCase() === 'black cube') {
+        if (window.scoreManager && window.scoreManager.hasAchievement('Saturn Worshipper')) {
+            return true;
+        }
+    }
+    
+    // Mercury is only greenlisted at frequency 6
+    if (objectName && objectName.toLowerCase() === 'mercury') {
+        return frequencyValue === 6;
+    }
+    
+    // At frequency 7, unlock outer planets: earth, moon, mars, venus, mercury, saturn, jupiter, neptune, pluto
+    if (frequencyValue === 7) {
+        const outerPlanets = ['earth', 'moon', 'mars', 'venus', 'mercury', 'saturn', 'jupiter', 'neptune', 'pluto'];
+        if (objectName && outerPlanets.includes(objectName.toLowerCase())) {
+            return true;
+        }
+    }
+    
+    // For all other objects, use their base greenlist status
+    return baseIsGreenlisted;
+}
+
 // Show info box with content
-function showInfoBox(content, objectName) {
+function showInfoBox(content, objectName, isGreenlisted) {
+    // Don't show infoboxes while traveling
+    if (travelState.isTraveling) {
+        return;
+    }
+    
     const infoBox = document.getElementById('object-info-box');
     const contentDiv = document.getElementById('info-box-content');
     const travelButton = document.getElementById('travel-button');
+
+    // Close any open panels
+    const controlPanelEl = document.getElementById('control-panel');
+    const inventoryPanelEl = document.getElementById('inventory-panel');
+    const explorePanelEl = document.getElementById('explore-panel');
+    const panelToggleEl = document.getElementById('panel-toggle');
+    const inventoryToggleEl = document.getElementById('inventory-toggle');
+    const exploreToggleEl = document.getElementById('explore-toggle');
     
+    // Show all toggle buttons
+    if (panelToggleEl) panelToggleEl.classList.remove('hidden');
+    if (inventoryToggleEl) inventoryToggleEl.classList.remove('hidden');
+    if (exploreToggleEl) exploreToggleEl.classList.remove('hidden');
+    
+    // Close any open panels
+    if (controlPanelEl && controlPanelEl.classList.contains('open')) {
+        controlPanelEl.classList.remove('open');
+    }
+    if (inventoryPanelEl && inventoryPanelEl.classList.contains('open')) {
+        inventoryPanelEl.classList.remove('open');
+    }
+    if (explorePanelEl && explorePanelEl.classList.contains('open')) {
+        explorePanelEl.classList.remove('open');
+    }
+
     if (infoBox && contentDiv) {
-        contentDiv.textContent = content;
+        // Use innerHTML to support HTML formatting (like red text for Elon in Mars)
+        // Replace newlines with <br> tags for proper formatting
+        const formattedContent = content.replace(/\n/g, '<br>');
+        contentDiv.innerHTML = formattedContent;
         infoBox.classList.add('show');
+
+        // Show travel button for all objects, but disable if not greenlisted or if it's the current location
+        travelButton.style.display = 'block';
+        const displayName = objectName.toUpperCase();
+        travelButton.textContent = `VISIT ${displayName}`;
+
+        // Enable/disable based on greenlist, current location, and fuel
+        // Use case-insensitive comparison for current location check
+        const isCurrentLocation = currentLocation && objectName && 
+            currentLocation.toLowerCase() === objectName.toLowerCase();
+        const hasFuel = tradingGame ? tradingGame.canTravelTo(objectName) : true;
         
-        // Show travel button for Mars
-        if (objectName === 'mars') {
-            travelButton.style.display = 'block';
-            travelButton.textContent = 'VISIT MARS';
-            travelButton.onclick = () => startTravel('mars');
+        // Check if object is on the current greenlist (uses same logic as explore panel)
+        const isActuallyGreenlisted = isOnCurrentGreenlist(objectName, isGreenlisted);
+        
+        // Disable button if not greenlisted, is current location, or doesn't have fuel
+        travelButton.disabled = !isActuallyGreenlisted || isCurrentLocation || !hasFuel;
+
+        if (!travelButton.disabled) {
+            travelButton.onclick = () => startTravel(objectName);
         } else {
-            travelButton.style.display = 'none';
+            travelButton.onclick = null;
         }
     }
 }
@@ -1676,7 +1812,65 @@ function hideInfoBox() {
     const infoBox = document.getElementById('object-info-box');
     if (infoBox) {
         infoBox.classList.remove('show');
+        // Clear any error messages
+        const errorElement = infoBox.querySelector('.travel-error');
+        if (errorElement) {
+            errorElement.remove();
+        }
     }
+}
+
+// Show travel error message in info box
+function showTravelError(message) {
+    const infoBox = document.getElementById('object-info-box');
+    if (!infoBox) return;
+    
+    // Remove any existing error
+    const existingError = infoBox.querySelector('.travel-error');
+    if (existingError) {
+        existingError.remove();
+    }
+    
+    // Create error element
+    const errorElement = document.createElement('div');
+    errorElement.className = 'travel-error';
+    errorElement.textContent = message;
+    errorElement.style.fontFamily = 'var(--font-primary)';
+    errorElement.style.fontSize = '0.75rem';
+    errorElement.style.color = 'rgba(255, 100, 100, 0.9)';
+    errorElement.style.padding = '0.5rem';
+    errorElement.style.marginTop = '0.5rem';
+    errorElement.style.backgroundColor = 'rgba(255, 100, 100, 0.1)';
+    errorElement.style.border = '1px solid rgba(255, 100, 100, 0.3)';
+    errorElement.style.borderRadius = '4px';
+    errorElement.style.opacity = '0';
+    errorElement.style.transition = 'opacity 0.2s';
+    
+    // Insert error before travel button
+    const travelButton = document.getElementById('travel-button');
+    if (travelButton && travelButton.parentElement) {
+        travelButton.parentElement.insertBefore(errorElement, travelButton);
+    } else {
+        infoBox.appendChild(errorElement);
+    }
+    
+    // Ensure info box is visible
+    infoBox.classList.add('show');
+    
+    // Fade in
+    setTimeout(() => {
+        errorElement.style.opacity = '1';
+    }, 10);
+    
+    // Auto-remove after 5 seconds
+    setTimeout(() => {
+        errorElement.style.opacity = '0';
+        setTimeout(() => {
+            if (errorElement.parentElement) {
+                errorElement.remove();
+            }
+        }, 200);
+    }, 5000);
 }
 
 // Create spaceship sprite
@@ -1743,6 +1937,24 @@ function createSpaceship() {
 function startTravel(destinationName) {
     if (travelState.isTraveling) {
         return; // Already traveling
+    }
+    
+    // Hide any open infobox when starting travel
+    hideInfoBox();
+    
+    // Prevent travel to current location (case-insensitive check)
+    if (currentLocation && destinationName && 
+        currentLocation.toLowerCase() === destinationName.toLowerCase()) {
+        showTravelError('You are already at this location!');
+        return;
+    }
+    
+    // Check fuel requirement
+    if (tradingGame && !tradingGame.canTravelTo(destinationName)) {
+        const fuelCost = tradingGame.getFuelCost(destinationName);
+        const currentFuel = tradingGame.getCommodityQuantity('fuel');
+        showTravelError(`Insufficient fuel! Need ${fuelCost} fuel, but you only have ${currentFuel}.`);
+        return;
     }
     
     // Find destination object
@@ -1812,6 +2024,12 @@ function startTravel(destinationName) {
     travelState.endPos = endPos.clone();
     travelState.destinationName = destinationName;
     
+    // Show travel indicator
+    const travelIndicator = document.getElementById('travel-indicator');
+    if (travelIndicator) {
+        travelIndicator.classList.add('show');
+    }
+    
     // Position spaceship exactly at start position
     travelState.spaceship.position.set(startPos.x, startPos.y, startPos.z);
     travelState.spaceship.visible = true;
@@ -1838,46 +2056,39 @@ function startTravel(destinationName) {
 
 // Click handler for label detection
 function onMouseClick(event) {
+    // Don't process clicks while traveling
+    if (travelState.isTraveling) {
+        return;
+    }
+    
     // First check HTML labels (lefty/lefthand)
     let clickedElement = event.target;
-    
+
     // Traverse up the DOM tree to find label wrapper
     while (clickedElement && clickedElement !== document.body) {
         // Check if this is a lefty or lefthand label wrapper
-        if (clickedElement.classList && 
-            (clickedElement.classList.contains('lefty-label-wrapper') || 
+        if (clickedElement.classList &&
+            (clickedElement.classList.contains('lefty-label-wrapper') ||
              clickedElement.classList.contains('lefthand-label-wrapper'))) {
-            
+
             // Get the SceneObject from the wrapper's userData
             const sceneObject = clickedElement.userData?.sceneObject;
-            
-            if (sceneObject) {
-                // Check if it's Mars
-                if (sceneObject.name === 'mars') {
-                    event.stopPropagation(); // Prevent event from bubbling
-                    showInfoBox('MARS\n\nThis is placeholder text for Mars. More information will be added here.', 'mars');
-                    return;
-                } else if (sceneObject.name === 'earth') {
-                    // Check if it's Earth
-                    event.stopPropagation(); // Prevent event from bubbling
-                    showInfoBox('EARTH\n\nThis is placeholder text for Earth. More information will be added here.', 'earth');
-                    return;
-                } else {
-                    // Hide info box for other objects (for now)
-                    hideInfoBox();
-                    return;
-                }
+
+            if (sceneObject && sceneObject.infoboxContent) {
+                event.stopPropagation(); // Prevent event from bubbling
+                showInfoBox(sceneObject.infoboxContent, sceneObject.name, sceneObject.isGreenlisted);
+                return;
             }
         }
         clickedElement = clickedElement.parentElement;
     }
-    
+
     // If not an HTML label, check sprite labels (3D sprites) using raycaster
     mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
     mouse.y = -(event.clientY / window.innerHeight) * 2 + 1;
-    
+
     raycaster.setFromCamera(mouse, camera);
-    
+
     // Get all sprite labels (labels are sprites for leader/laser line types)
     const spriteLabels = [];
     sceneManager.allObjects.forEach(obj => {
@@ -1885,31 +2096,76 @@ function onMouseClick(event) {
             spriteLabels.push(obj.label);
         }
     });
-    
+
     // Find intersections with sprite labels
     const intersects = raycaster.intersectObjects(spriteLabels, true);
-    
+
     if (intersects.length > 0) {
         const intersectedSprite = intersects[0].object;
         // Find the SceneObject that owns this sprite label
         const clickedObject = sceneManager.allObjects.find(obj => {
             return obj.label === intersectedSprite;
         });
-        
-        if (clickedObject) {
-            // Check if it's Mars
-            if (clickedObject.name === 'mars') {
-                showInfoBox('MARS\n\nThis is placeholder text for Mars. More information will be added here.', 'mars');
-                return;
-            } else {
-                // Hide info box for other objects (for now)
-                hideInfoBox();
-                return;
-            }
+
+        if (clickedObject && clickedObject.infoboxContent) {
+            showInfoBox(clickedObject.infoboxContent, clickedObject.name, clickedObject.isGreenlisted);
+            return;
         }
     }
-    
-    // If clicked outside labels, hide info box
+
+    // If no label clicked, check for mesh and sprite intersections (for objects without labels like Earth)
+    // Use a more robust approach: check the entire scene hierarchy to catch objects in groups
+    // Build a map of all meshes/sprites to their SceneObjects for quick lookup
+    const meshToObjectMap = new Map();
+    const allMeshesAndSprites = [];
+    sceneManager.allObjects.forEach(obj => {
+        if (obj.mesh) {
+            // More robust check: use isMesh/isSprite properties or type string
+            const isMesh = obj.mesh.isMesh === true || obj.mesh.type === 'Mesh';
+            const isSprite = obj.mesh.isSprite === true || obj.mesh.type === 'Sprite';
+            if (isMesh || isSprite) {
+                allMeshesAndSprites.push(obj.mesh);
+                meshToObjectMap.set(obj.mesh, obj);
+            }
+        }
+    });
+
+    // Check all meshes/sprites directly, and also check the scene to catch any nested objects
+    const objectsToCheck = allMeshesAndSprites.length > 0 ? allMeshesAndSprites : [scene];
+    const meshIntersects = raycaster.intersectObjects(objectsToCheck, true);
+
+    if (meshIntersects.length > 0) {
+        const intersectedObject = meshIntersects[0].object;
+        
+        // Find the SceneObject that owns this mesh/sprite
+        // First check our map for direct lookup
+        let clickedObject = meshToObjectMap.get(intersectedObject);
+        
+        // If not found, traverse up the parent chain to find the actual mesh
+        // This handles cases where the intersected object might be nested in a group
+        if (!clickedObject) {
+            let current = intersectedObject;
+            while (current) {
+                // Check if current object is in our map
+                clickedObject = meshToObjectMap.get(current);
+                if (clickedObject) break;
+                
+                // Move up the parent chain
+                if (current.parent) {
+                    current = current.parent;
+                } else {
+                    break;
+                }
+            }
+        }
+
+        if (clickedObject && clickedObject.infoboxContent) {
+            showInfoBox(clickedObject.infoboxContent, clickedObject.name, clickedObject.isGreenlisted);
+            return;
+        }
+    }
+
+    // If clicked outside labels and meshes, hide info box
     hideInfoBox();
 }
 
@@ -2074,6 +2330,12 @@ if (isMobile) {
 
 // Initialize Inventory Manager
 const inventoryManager = new InventoryManager();
+// Make inventoryManager available globally for trading game inventory calculations
+window.inventoryManager = inventoryManager;
+
+// Initialize Score Manager
+const scoreManager = new ScoreManager();
+window.scoreManager = scoreManager;
 
 // Explore Panel
 const exploreToggle = document.getElementById('explore-toggle');
@@ -2126,22 +2388,1208 @@ function updateExplorePanel() {
     }
 }
 
+// Check if sun is visible (in front of camera)
+// Returns true if sun is in front of camera (prograde), false if behind (retrograde)
+function isSunVisible() {
+    const sunObject = sceneManager.allObjects.find(obj => obj.name === 'SUN');
+    if (!sunObject) {
+        return false;
+    }
+    
+    // Get sun's world position (accounting for all transforms)
+    const sunWorldPos = new THREE.Vector3();
+    if (sunObject.mesh) {
+        sunObject.mesh.getWorldPosition(sunWorldPos);
+    } else {
+        // Sun doesn't have a mesh, use position directly
+        // Sun is bindingType: 'free', so position is already in world space
+        sunWorldPos.copy(sunObject.position);
+    }
+    
+    // Calculate vector from camera to sun
+    const cameraToSun = new THREE.Vector3();
+    cameraToSun.subVectors(sunWorldPos, camera.position);
+    
+    // Get camera's forward direction (negative Z in Three.js)
+    const cameraForward = new THREE.Vector3(0, 0, -1);
+    cameraForward.applyQuaternion(camera.quaternion);
+    
+    // If dot product is positive, sun is in front of camera (prograde)
+    // If dot product is negative, sun is behind camera (retrograde)
+    const dotProduct = cameraToSun.dot(cameraForward);
+    return dotProduct > 0;
+}
+
 // Render explore content based on current location
 function renderExploreContent() {
     if (!exploreContent || !currentLocation) return;
-    
+
     // Clear existing content
     exploreContent.innerHTML = '';
+
+    // Get all greenlisted objects using the same logic as visit button
+    let greenlistedObjects = sceneManager.allObjects.filter(obj => {
+        return isOnCurrentGreenlist(obj.name, obj.isGreenlisted);
+    });
     
-    // Location-specific content will go here
-    // For now, just show a placeholder
-    const locationName = currentLocation.toUpperCase();
-    const placeholder = document.createElement('p');
-    placeholder.textContent = `Exploring ${locationName}...`;
-    placeholder.style.color = 'var(--color--foreground)';
-    placeholder.style.opacity = '0.7';
-    placeholder.style.padding = '1rem';
-    exploreContent.appendChild(placeholder);
+    // Create greenlist section at the top (simple text list)
+    if (greenlistedObjects.length > 0) {
+        const greenlistSection = document.createElement('div');
+        greenlistSection.className = 'greenlist-section';
+        greenlistSection.style.marginBottom = '2rem';
+        greenlistSection.style.paddingBottom = '2rem';
+        greenlistSection.style.borderBottom = '1px solid rgba(196, 213, 188, 0.2)';
+        
+        const greenlistTitle = document.createElement('h3');
+        greenlistTitle.textContent = 'GREENLIST';
+        greenlistTitle.style.fontFamily = 'var(--font-primary)';
+        greenlistTitle.style.fontWeight = '700';
+        greenlistTitle.style.fontSize = '0.625rem';
+        greenlistTitle.style.textTransform = 'uppercase';
+        greenlistTitle.style.letterSpacing = '0.1em';
+        greenlistTitle.style.color = 'var(--color--foreground)';
+        greenlistTitle.style.marginBottom = '0.75rem';
+        greenlistTitle.style.opacity = '0.9';
+        
+        // Remove duplicates (some objects might have same name)
+        const uniqueGreenlisted = [];
+        const seenNames = new Set();
+        greenlistedObjects.forEach(obj => {
+            if (!seenNames.has(obj.name)) {
+                seenNames.add(obj.name);
+                uniqueGreenlisted.push(obj);
+            }
+        });
+        
+        // Simple comma-separated list
+        const greenlistText = document.createElement('p');
+        greenlistText.style.fontFamily = 'var(--font-primary)';
+        greenlistText.style.fontWeight = '700';
+        greenlistText.style.fontSize = '0.625rem';
+        greenlistText.style.textTransform = 'uppercase';
+        greenlistText.style.letterSpacing = '0.1em';
+        greenlistText.style.color = 'var(--color--foreground)';
+        greenlistText.style.opacity = '0.7';
+        greenlistText.style.margin = '0';
+        greenlistText.textContent = uniqueGreenlisted.map(obj => obj.name.toUpperCase()).join(', ');
+        
+        greenlistSection.appendChild(greenlistTitle);
+        greenlistSection.appendChild(greenlistText);
+        exploreContent.appendChild(greenlistSection);
+    }
+
+    // Add trading section (skip for Mercury and Jupiter - no trading)
+    if (tradingGame && tradingUI && currentLocation.toUpperCase() !== 'MERCURY' && currentLocation.toUpperCase() !== 'JUPITER') {
+        const tradingSection = tradingUI.renderTradingPanel(tradingGame, currentLocation);
+        exploreContent.appendChild(tradingSection);
+    }
+
+    // Find the current location object to get its explore content
+    const currentObject = sceneManager.allObjects.find(obj => obj.name === currentLocation);
+
+    // Special handling for MERCURY
+    if (currentLocation.toUpperCase() === 'MERCURY') {
+        const sunVisible = isSunVisible();
+        const isPrograde = sunVisible;
+        
+        // Create content element
+        const contentElement = document.createElement('p');
+        contentElement.style.color = 'var(--color--foreground)';
+        contentElement.style.opacity = '0.7';
+        contentElement.style.padding = '1rem';
+        
+        if (isPrograde) {
+            // Prograde: Sun is visible
+            contentElement.textContent = 'Mercury is in Prograde.\n\nPlease wait until Mercury Retrograde.';
+            exploreContent.appendChild(contentElement);
+        } else {
+            // Retrograde: Sun is not visible
+            contentElement.textContent = 'Mercury is in Retrograde.\n\nPlease select your Location.';
+            
+            // Add SATURN and JUPITER buttons
+            const buttonsContainer = document.createElement('div');
+            buttonsContainer.style.marginTop = '1rem';
+            buttonsContainer.style.display = 'flex';
+            buttonsContainer.style.flexDirection = 'column';
+            buttonsContainer.style.gap = '0.75rem';
+            
+            // Create SATURN button
+            const saturnButton = document.createElement('button');
+            saturnButton.textContent = 'SATURN';
+            saturnButton.style.width = '100%';
+            saturnButton.style.padding = '0.75rem';
+            saturnButton.style.fontFamily = 'var(--font-primary)';
+            saturnButton.style.fontWeight = '700';
+            saturnButton.style.fontSize = '0.625rem';
+            saturnButton.style.textTransform = 'uppercase';
+            saturnButton.style.letterSpacing = '0.05em';
+            saturnButton.style.color = 'var(--color--foreground)';
+            saturnButton.style.backgroundColor = 'rgba(196, 213, 188, 0.1)';
+            saturnButton.style.border = '1px solid rgba(196, 213, 188, 0.3)';
+            saturnButton.style.borderRadius = '4px';
+            saturnButton.style.cursor = 'pointer';
+            saturnButton.style.transition = 'all 0.2s';
+            saturnButton.onclick = () => {
+                // Disable buttons temporarily when clicked
+                saturnButton.disabled = true;
+                jupiterButton.disabled = true;
+                saturnButton.style.opacity = '0.5';
+                jupiterButton.style.opacity = '0.5';
+                saturnButton.style.cursor = 'not-allowed';
+                jupiterButton.style.cursor = 'not-allowed';
+                
+                // Add 2 fuel when traveling from Mercury (respecting inventory limit)
+                if (tradingGame) {
+                    const currentFuel = tradingGame.getCommodityQuantity('fuel');
+                    // Check inventory capacity before adding fuel
+                    // Fuel already takes a slot if quantity > 0, so adding more won't exceed capacity
+                    // But check if fuel doesn't exist and we're at capacity
+                    const fuelExists = currentFuel > 0;
+                    if (!fuelExists && tradingGame.getInventoryUsed() >= tradingGame.getInventoryCapacity()) {
+                        showTravelError('Insufficient Inventory');
+                        // Re-enable buttons if error
+                        saturnButton.disabled = false;
+                        jupiterButton.disabled = false;
+                        saturnButton.style.opacity = '1';
+                        jupiterButton.style.opacity = '1';
+                        saturnButton.style.cursor = 'pointer';
+                        jupiterButton.style.cursor = 'pointer';
+                        return;
+                    }
+                    tradingGame.commodities['fuel'] = (currentFuel || 0) + 2;
+                    // Refresh inventory to show updated fuel
+                    if (window.renderInventory) {
+                        window.renderInventory();
+                    }
+                }
+                startTravel('SATURN');
+            };
+            
+            // Hover effects for SATURN button
+            saturnButton.addEventListener('mouseenter', () => {
+                saturnButton.style.backgroundColor = 'rgba(196, 213, 188, 0.2)';
+            });
+            saturnButton.addEventListener('mouseleave', () => {
+                saturnButton.style.backgroundColor = 'rgba(196, 213, 188, 0.1)';
+            });
+            
+            // Create JUPITER button
+            const jupiterButton = document.createElement('button');
+            jupiterButton.textContent = 'JUPITER';
+            jupiterButton.style.width = '100%';
+            jupiterButton.style.padding = '0.75rem';
+            jupiterButton.style.fontFamily = 'var(--font-primary)';
+            jupiterButton.style.fontWeight = '700';
+            jupiterButton.style.fontSize = '0.625rem';
+            jupiterButton.style.textTransform = 'uppercase';
+            jupiterButton.style.letterSpacing = '0.05em';
+            jupiterButton.style.color = 'var(--color--foreground)';
+            jupiterButton.style.backgroundColor = 'rgba(196, 213, 188, 0.1)';
+            jupiterButton.style.border = '1px solid rgba(196, 213, 188, 0.3)';
+            jupiterButton.style.borderRadius = '4px';
+            jupiterButton.style.cursor = 'pointer';
+            jupiterButton.style.transition = 'all 0.2s';
+            jupiterButton.onclick = () => {
+                // Disable buttons temporarily when clicked
+                saturnButton.disabled = true;
+                jupiterButton.disabled = true;
+                saturnButton.style.opacity = '0.5';
+                jupiterButton.style.opacity = '0.5';
+                saturnButton.style.cursor = 'not-allowed';
+                jupiterButton.style.cursor = 'not-allowed';
+                
+                // Add 2 fuel when traveling from Mercury (respecting inventory limit)
+                if (tradingGame) {
+                    const currentFuel = tradingGame.getCommodityQuantity('fuel');
+                    // Check inventory capacity before adding fuel
+                    // Fuel already takes a slot if quantity > 0, so adding more won't exceed capacity
+                    // But check if fuel doesn't exist and we're at capacity
+                    const fuelExists = currentFuel > 0;
+                    if (!fuelExists && tradingGame.getInventoryUsed() >= tradingGame.getInventoryCapacity()) {
+                        showTravelError('Insufficient Inventory');
+                        // Re-enable buttons if error
+                        saturnButton.disabled = false;
+                        jupiterButton.disabled = false;
+                        saturnButton.style.opacity = '1';
+                        jupiterButton.style.opacity = '1';
+                        saturnButton.style.cursor = 'pointer';
+                        jupiterButton.style.cursor = 'pointer';
+                        return;
+                    }
+                    tradingGame.commodities['fuel'] = (currentFuel || 0) + 2;
+                    // Refresh inventory to show updated fuel
+                    if (window.renderInventory) {
+                        window.renderInventory();
+                    }
+                }
+                startTravel('JUPITER');
+            };
+            
+            // Hover effects for JUPITER button
+            jupiterButton.addEventListener('mouseenter', () => {
+                jupiterButton.style.backgroundColor = 'rgba(196, 213, 188, 0.2)';
+            });
+            jupiterButton.addEventListener('mouseleave', () => {
+                jupiterButton.style.backgroundColor = 'rgba(196, 213, 188, 0.1)';
+            });
+            
+            buttonsContainer.appendChild(saturnButton);
+            buttonsContainer.appendChild(jupiterButton);
+            
+            exploreContent.appendChild(contentElement);
+            exploreContent.appendChild(buttonsContainer);
+        }
+    } else if (currentObject && currentObject.exploreContent) {
+        // Use the object's explore content
+        // For Venus, check if donation has been made and update content accordingly
+        let displayContent = currentObject.exploreContent;
+        if (currentLocation.toUpperCase() === 'VENUS' && currentObject.hasDonatedExotic) {
+            displayContent = 'Tune to Frequency 6 to travel to Mercury.';
+        }
+        // For Jupiter, check if name has been entered
+        if (currentLocation.toUpperCase() === 'JUPITER' && currentObject.playerName) {
+            displayContent = 'Tune to Frequency 7 to unlock the Outer Planets.';
+        }
+        // For Black Cube, check if 9 slaves have been sacrificed
+        if ((currentLocation.toUpperCase() === 'BLACK CUBE' || currentLocation.toLowerCase() === 'black cube') && currentObject.hasSacrificed9Slaves) {
+            displayContent = 'Sacrifice 1 Baby to Moloch';
+        }
+        
+        const contentElement = document.createElement('p');
+        contentElement.textContent = displayContent;
+        contentElement.style.color = 'var(--color--foreground)';
+        contentElement.style.opacity = '0.7';
+        contentElement.style.padding = '1rem';
+        exploreContent.appendChild(contentElement);
+        
+        // Special handling for EARTH - add buy/sell body button
+        if (currentLocation.toUpperCase() === 'EARTH') {
+            createBuySellButton('body', 'BODY', 1000, exploreContent);
+        }
+        
+        // Special handling for MOON - add buy/sell spirit button
+        if (currentLocation.toUpperCase() === 'MOON') {
+            createBuySellButton('spirit', 'SPIRIT', 1000, exploreContent);
+        }
+        
+        // Special handling for MARS - add buy/sell soul button
+        if (currentLocation.toUpperCase() === 'MARS' || currentLocation.toLowerCase() === 'mars') {
+            createBuySellButton('soul', 'SOUL', 1000, exploreContent);
+        }
+        
+        // Special handling for VENUS - add donate exotic button
+        if (currentLocation.toUpperCase() === 'VENUS' || currentLocation.toLowerCase() === 'venus') {
+            createDonateExoticButton(exploreContent, currentObject);
+        }
+        
+        // Special handling for SATURN - add pledge soul button
+        if (currentLocation.toUpperCase() === 'SATURN' || currentLocation.toLowerCase() === 'saturn') {
+            createPledgeSoulButton(exploreContent, currentObject);
+        }
+        
+        // Special handling for JUPITER - add pledge gold button or name entry
+        if (currentLocation.toUpperCase() === 'JUPITER' || currentLocation.toLowerCase() === 'jupiter') {
+            createJupiterPledgeButton(exploreContent, currentObject);
+        }
+        
+        // Special handling for NEPTUNE - add party button
+        if (currentLocation.toUpperCase() === 'NEPTUNE' || currentLocation.toLowerCase() === 'neptune') {
+            createNeptunePartyButton(exploreContent, currentObject);
+        }
+        
+        // Special handling for BLACK CUBE - add sacrifice button
+        if (currentLocation.toUpperCase() === 'BLACK CUBE' || currentLocation.toLowerCase() === 'black cube') {
+            createBlackCubeSacrificeButton(exploreContent, currentObject);
+        }
+    } else {
+        // Fallback placeholder
+        const locationName = currentLocation.toUpperCase();
+        const placeholder = document.createElement('p');
+        placeholder.textContent = `Exploring ${locationName}...`;
+        placeholder.style.color = 'var(--color--foreground)';
+        placeholder.style.opacity = '0.7';
+        placeholder.style.padding = '1rem';
+        exploreContent.appendChild(placeholder);
+    }
+}
+
+// Helper function to create buy/sell button for body/soul/spirit
+function createBuySellButton(itemId, itemName, price, parentElement) {
+    const section = document.createElement('div');
+    section.style.marginTop = '1rem';
+    section.style.paddingTop = '1rem';
+    section.style.borderTop = '1px solid rgba(196, 213, 188, 0.2)';
+    
+    const hasItem = inventoryManager.hasItem(itemId, 1);
+    const button = document.createElement('button');
+    button.textContent = hasItem ? `SELL ${itemName}` : `BUY ${itemName}`;
+    button.style.width = '100%';
+    button.style.padding = '0.75rem';
+    button.style.fontFamily = 'var(--font-primary)';
+    button.style.fontWeight = '700';
+    button.style.fontSize = '0.625rem';
+    button.style.textTransform = 'uppercase';
+    button.style.letterSpacing = '0.05em';
+    button.style.color = 'var(--color--foreground)';
+    button.style.backgroundColor = 'rgba(196, 213, 188, 0.1)';
+    button.style.border = '1px solid rgba(196, 213, 188, 0.3)';
+    button.style.borderRadius = '4px';
+    button.style.cursor = 'pointer';
+    button.style.transition = 'all 0.2s';
+    
+    // Hover effects
+    button.addEventListener('mouseenter', () => {
+        if (!button.disabled) {
+            button.style.backgroundColor = 'rgba(196, 213, 188, 0.2)';
+        }
+    });
+    button.addEventListener('mouseleave', () => {
+        if (!button.disabled) {
+            button.style.backgroundColor = 'rgba(196, 213, 188, 0.1)';
+        }
+    });
+    
+    // Click handler
+    button.addEventListener('click', () => {
+        // Check item status dynamically
+        const currentHasItem = inventoryManager.hasItem(itemId, 1);
+        
+        if (currentHasItem) {
+            // Sell item
+            if (tradingGame) {
+                tradingGame.money += price;
+                inventoryManager.removeItem(itemId, 1);
+                
+                // Track achievements and score based on location and item
+                if (window.scoreManager && currentLocation) {
+                    const loc = currentLocation.toUpperCase();
+                    if (itemId === 'body' && loc === 'EARTH') {
+                        window.scoreManager.addAchievement('Prostitute');
+                    } else if (itemId === 'soul' && loc === 'MARS') {
+                        window.scoreManager.addAchievement('Martian');
+                        // Add 1 point for every soul sold to Elon on Mars
+                        window.scoreManager.addScore(1);
+                    } else if (itemId === 'spirit' && loc === 'MOON') {
+                        window.scoreManager.addAchievement('Transhumanist');
+                    }
+                    // Update score display
+                    if (window.updateScoreDisplay) {
+                        window.updateScoreDisplay();
+                    }
+                }
+                
+                // Update UI - refresh inventory and explore panel
+                if (window.renderInventory) {
+                    window.renderInventory();
+                }
+                if (window.updateExplorePanel) {
+                    window.updateExplorePanel();
+                }
+                
+                // Visual feedback
+                button.style.backgroundColor = 'rgba(196, 213, 188, 0.3)';
+                setTimeout(() => {
+                    button.style.backgroundColor = 'rgba(196, 213, 188, 0.1)';
+                }, 200);
+            }
+        } else {
+            // Buy item
+            // Check inventory capacity first - check if adding 1 would exceed capacity
+            if (tradingGame && (tradingGame.getInventoryUsed() + 1) > tradingGame.getInventoryCapacity()) {
+                // Show error if inventory is full
+                const errorMsg = document.createElement('div');
+                errorMsg.textContent = 'Insufficient Inventory';
+                errorMsg.style.fontFamily = 'var(--font-primary)';
+                errorMsg.style.fontSize = '0.625rem';
+                errorMsg.style.color = 'rgba(255, 100, 100, 0.9)';
+                errorMsg.style.marginTop = '0.5rem';
+                errorMsg.style.padding = '0.5rem';
+                errorMsg.style.backgroundColor = 'rgba(255, 100, 100, 0.1)';
+                errorMsg.style.border = '1px solid rgba(255, 100, 100, 0.3)';
+                errorMsg.style.borderRadius = '4px';
+                errorMsg.style.opacity = '0';
+                errorMsg.style.transition = 'opacity 0.2s';
+                section.appendChild(errorMsg);
+                
+                setTimeout(() => {
+                    errorMsg.style.opacity = '1';
+                }, 10);
+                
+                setTimeout(() => {
+                    errorMsg.style.opacity = '0';
+                    setTimeout(() => {
+                        if (errorMsg.parentElement) {
+                            errorMsg.remove();
+                        }
+                    }, 200);
+                }, 3000);
+                
+                // Visual feedback for error
+                button.style.backgroundColor = 'rgba(255, 100, 100, 0.2)';
+                setTimeout(() => {
+                    button.style.backgroundColor = 'rgba(196, 213, 188, 0.1)';
+                }, 300);
+                return;
+            }
+            
+            if (tradingGame && tradingGame.money >= price) {
+                tradingGame.money -= price;
+                inventoryManager.addItem(itemId, 1);
+                
+                // Update UI - refresh inventory and explore panel
+                if (window.renderInventory) {
+                    window.renderInventory();
+                }
+                if (window.updateExplorePanel) {
+                    window.updateExplorePanel();
+                }
+                
+                // Visual feedback
+                button.style.backgroundColor = 'rgba(196, 213, 188, 0.3)';
+                setTimeout(() => {
+                    button.style.backgroundColor = 'rgba(196, 213, 188, 0.1)';
+                }, 200);
+            } else {
+                // Show error if insufficient funds
+                const errorMsg = document.createElement('div');
+                errorMsg.textContent = 'Insufficient funds';
+                errorMsg.style.fontFamily = 'var(--font-primary)';
+                errorMsg.style.fontSize = '0.625rem';
+                errorMsg.style.color = 'rgba(255, 100, 100, 0.9)';
+                errorMsg.style.marginTop = '0.5rem';
+                errorMsg.style.padding = '0.5rem';
+                errorMsg.style.backgroundColor = 'rgba(255, 100, 100, 0.1)';
+                errorMsg.style.border = '1px solid rgba(255, 100, 100, 0.3)';
+                errorMsg.style.borderRadius = '4px';
+                errorMsg.style.opacity = '0';
+                errorMsg.style.transition = 'opacity 0.2s';
+                section.appendChild(errorMsg);
+                
+                setTimeout(() => {
+                    errorMsg.style.opacity = '1';
+                }, 10);
+                
+                setTimeout(() => {
+                    errorMsg.style.opacity = '0';
+                    setTimeout(() => {
+                        if (errorMsg.parentElement) {
+                            errorMsg.remove();
+                        }
+                    }, 200);
+                }, 3000);
+                
+                // Visual feedback for error
+                button.style.backgroundColor = 'rgba(255, 100, 100, 0.2)';
+                setTimeout(() => {
+                    button.style.backgroundColor = 'rgba(196, 213, 188, 0.1)';
+                }, 300);
+            }
+        }
+    });
+    
+    // Disable button if buying but insufficient funds
+    if (!hasItem && tradingGame && tradingGame.money < price) {
+        button.disabled = true;
+        button.style.opacity = '0.5';
+        button.style.cursor = 'not-allowed';
+    }
+    
+    section.appendChild(button);
+    parentElement.appendChild(section);
+}
+
+// Helper function to create pledge soul button for Saturn
+function createPledgeSoulButton(parentElement, saturnObject) {
+    const section = document.createElement('div');
+    section.style.marginTop = '1rem';
+    section.style.paddingTop = '1rem';
+    section.style.borderTop = '1px solid rgba(196, 213, 188, 0.2)';
+    
+    // Initialize pledge state if not exists
+    if (!saturnObject.hasPledgedSoul) {
+        saturnObject.hasPledgedSoul = false;
+    }
+    
+    const hasSoul = inventoryManager.hasItem('soul', 1);
+    const isPledged = saturnObject.hasPledgedSoul;
+    const button = document.createElement('button');
+    button.textContent = isPledged ? 'PLEDGED' : 'PLEDGE SOUL';
+    button.disabled = isPledged || !hasSoul;
+    button.style.width = '100%';
+    button.style.padding = '0.75rem';
+    button.style.fontFamily = 'var(--font-primary)';
+    button.style.fontWeight = '700';
+    button.style.fontSize = '0.625rem';
+    button.style.textTransform = 'uppercase';
+    button.style.letterSpacing = '0.05em';
+    button.style.color = 'var(--color--foreground)';
+    button.style.backgroundColor = (isPledged || !hasSoul) ? 'rgba(196, 213, 188, 0.05)' : 'rgba(196, 213, 188, 0.1)';
+    button.style.border = '1px solid rgba(196, 213, 188, 0.3)';
+    button.style.borderRadius = '4px';
+    button.style.cursor = (isPledged || !hasSoul) ? 'not-allowed' : 'pointer';
+    button.style.opacity = (isPledged || !hasSoul) ? '0.5' : '1';
+    button.style.transition = 'all 0.2s';
+    
+    // Hover effects (only if not pledged and has soul)
+    if (!isPledged && hasSoul) {
+        button.addEventListener('mouseenter', () => {
+            if (!button.disabled) {
+                button.style.backgroundColor = 'rgba(196, 213, 188, 0.2)';
+            }
+        });
+        button.addEventListener('mouseleave', () => {
+            if (!button.disabled) {
+                button.style.backgroundColor = 'rgba(196, 213, 188, 0.1)';
+            }
+        });
+    }
+    
+    // Click handler
+    button.addEventListener('click', () => {
+        if (isPledged || !hasSoul) return;
+        
+        // Check if still has soul
+        const currentHasSoul = inventoryManager.hasItem('soul', 1);
+        if (!currentHasSoul) {
+            button.disabled = true;
+            button.style.opacity = '0.5';
+            button.style.cursor = 'not-allowed';
+            return;
+        }
+        
+        // Pledge soul: give $5000 and remove soul
+        if (tradingGame) {
+            tradingGame.money += 5000;
+            inventoryManager.removeItem('soul', 1);
+            saturnObject.hasPledgedSoul = true; // Mark as pledged
+            
+            // Track achievement for pledging soul to Saturn
+            if (window.scoreManager) {
+                window.scoreManager.addAchievement('Saturn Worshipper');
+                // Update score display
+                if (window.updateScoreDisplay) {
+                    window.updateScoreDisplay();
+                }
+            }
+            
+            // Update button text and state
+            button.textContent = 'PLEDGED';
+            button.disabled = true;
+            button.style.opacity = '0.5';
+            button.style.cursor = 'not-allowed';
+            button.style.backgroundColor = 'rgba(196, 213, 188, 0.05)';
+            
+            // Update UI - refresh inventory and explore panel
+            if (window.renderInventory) {
+                window.renderInventory();
+            }
+            if (window.updateExplorePanel) {
+                window.updateExplorePanel();
+            }
+            
+            // Visual feedback
+            button.style.backgroundColor = 'rgba(196, 213, 188, 0.3)';
+            setTimeout(() => {
+                button.style.backgroundColor = 'rgba(196, 213, 188, 0.05)';
+            }, 200);
+        }
+    });
+    
+    section.appendChild(button);
+    parentElement.appendChild(section);
+}
+
+// Helper function to create Jupiter pledge gold button and name entry
+function createJupiterPledgeButton(parentElement, jupiterObject) {
+    // Initialize pledge state if not exists
+    if (!jupiterObject.hasPledgedGold) {
+        jupiterObject.hasPledgedGold = false;
+    }
+    // No persistence - player name resets on page reload
+    
+    const section = document.createElement('div');
+    section.style.marginTop = '1rem';
+    section.style.paddingTop = '1rem';
+    section.style.borderTop = '1px solid rgba(196, 213, 188, 0.2)';
+    
+    // If name is already entered, set explore content and return
+    // The message will be displayed by renderExploreContent
+    if (jupiterObject.playerName) {
+        jupiterObject.exploreContent = 'Tune to Frequency 7 to unlock the Outer Planets.';
+        return;
+    }
+    
+    // If gold not pledged, show pledge button
+    if (!jupiterObject.hasPledgedGold) {
+        const hasGold = tradingGame && tradingGame.getCommodityQuantity('gold') >= 5;
+        const button = document.createElement('button');
+        button.textContent = 'PLEDGE';
+        button.disabled = !hasGold;
+        button.style.width = '100%';
+        button.style.padding = '0.75rem';
+        button.style.fontFamily = 'var(--font-primary)';
+        button.style.fontWeight = '700';
+        button.style.fontSize = '0.625rem';
+        button.style.textTransform = 'uppercase';
+        button.style.letterSpacing = '0.05em';
+        button.style.color = 'var(--color--foreground)';
+        button.style.backgroundColor = hasGold ? 'rgba(196, 213, 188, 0.1)' : 'rgba(196, 213, 188, 0.05)';
+        button.style.border = '1px solid rgba(196, 213, 188, 0.3)';
+        button.style.borderRadius = '4px';
+        button.style.cursor = hasGold ? 'pointer' : 'not-allowed';
+        button.style.opacity = hasGold ? '1' : '0.5';
+        button.style.transition = 'all 0.2s';
+        
+        // Hover effects
+        if (hasGold) {
+            button.addEventListener('mouseenter', () => {
+                if (!button.disabled) {
+                    button.style.backgroundColor = 'rgba(196, 213, 188, 0.2)';
+                }
+            });
+            button.addEventListener('mouseleave', () => {
+                if (!button.disabled) {
+                    button.style.backgroundColor = 'rgba(196, 213, 188, 0.1)';
+                }
+            });
+        }
+        
+        // Click handler
+        button.addEventListener('click', () => {
+            if (jupiterObject.hasPledgedGold || !hasGold) return;
+            
+            // Check if still has 5 gold
+            const currentGold = tradingGame && tradingGame.getCommodityQuantity('gold');
+            if (!currentGold || currentGold < 5) return;
+            
+            // Remove 5 gold
+            tradingGame.commodities['gold'] = Math.max(0, tradingGame.commodities['gold'] - 5);
+            jupiterObject.hasPledgedGold = true;
+            
+            // Update explore content
+            jupiterObject.exploreContent = 'Enter your name';
+            
+            // Update UI - refresh inventory and explore panel
+            if (window.renderInventory) {
+                window.renderInventory();
+            }
+            if (window.updateExplorePanel) {
+                window.updateExplorePanel();
+            }
+            
+            // Visual feedback
+            button.style.backgroundColor = 'rgba(196, 213, 188, 0.3)';
+            setTimeout(() => {
+                button.style.backgroundColor = 'rgba(196, 213, 188, 0.1)';
+            }, 200);
+        });
+        
+        section.appendChild(button);
+    } else {
+        // Gold pledged, show name entry form
+        jupiterObject.exploreContent = 'Enter your name';
+        
+        const nameInput = document.createElement('input');
+        nameInput.type = 'text';
+        nameInput.placeholder = 'Your name';
+        nameInput.style.width = '100%';
+        nameInput.style.padding = '0.75rem';
+        nameInput.style.fontFamily = 'var(--font-primary)';
+        nameInput.style.fontWeight = '700';
+        nameInput.style.fontSize = '0.625rem';
+        nameInput.style.textTransform = 'uppercase';
+        nameInput.style.letterSpacing = '0.05em';
+        nameInput.style.color = 'var(--color--foreground)';
+        nameInput.style.backgroundColor = 'rgba(196, 213, 188, 0.1)';
+        nameInput.style.border = '1px solid rgba(196, 213, 188, 0.3)';
+        nameInput.style.borderRadius = '4px';
+        nameInput.style.marginBottom = '0.5rem';
+        nameInput.style.outline = 'none';
+        
+        const submitButton = document.createElement('button');
+        submitButton.innerHTML = '→';
+        submitButton.style.width = '100%';
+        submitButton.style.padding = '0.75rem';
+        submitButton.style.fontFamily = 'var(--font-primary)';
+        submitButton.style.fontWeight = '700';
+        submitButton.style.fontSize = '0.75rem';
+        submitButton.style.color = 'var(--color--foreground)';
+        submitButton.style.backgroundColor = 'rgba(196, 213, 188, 0.1)';
+        submitButton.style.border = '1px solid rgba(196, 213, 188, 0.3)';
+        submitButton.style.borderRadius = '4px';
+        submitButton.style.cursor = 'pointer';
+        submitButton.style.transition = 'all 0.2s';
+        
+        // Submit handler
+        const handleSubmit = () => {
+            const name = nameInput.value.trim();
+            if (!name) return;
+            
+            // Save name (session only, no persistence)
+            jupiterObject.playerName = name;
+            
+            // Special case: if name is 'יהוה', give fuel and travel to anja
+            if (name === 'יהוה') {
+                // Give 2 fuel
+                if (tradingGame) {
+                    tradingGame.commodities['fuel'] = (tradingGame.commodities['fuel'] || 0) + 2;
+                }
+                
+                // Automatically travel to anja
+                setTimeout(() => {
+                    startTravel('anja');
+                }, 500);
+            } else {
+                // Normal flow: update explore content and travel to Earth
+                jupiterObject.exploreContent = 'Tune to Frequency 7 to unlock the Outer Planets.';
+                
+                // Give 2 fuel
+                if (tradingGame) {
+                    tradingGame.commodities['fuel'] = (tradingGame.commodities['fuel'] || 0) + 2;
+                }
+                
+                // Automatically travel to Earth (costs 1 fuel)
+                setTimeout(() => {
+                    if (tradingGame && tradingGame.canTravelTo('EARTH')) {
+                        startTravel('EARTH');
+                    }
+                }, 500);
+            }
+            
+            // Update UI
+            if (window.renderInventory) {
+                window.renderInventory();
+            }
+            if (window.updateExplorePanel) {
+                window.updateExplorePanel();
+            }
+        };
+        
+        submitButton.addEventListener('click', handleSubmit);
+        nameInput.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') {
+                handleSubmit();
+            }
+        });
+        
+        submitButton.addEventListener('mouseenter', () => {
+            submitButton.style.backgroundColor = 'rgba(196, 213, 188, 0.2)';
+        });
+        submitButton.addEventListener('mouseleave', () => {
+            submitButton.style.backgroundColor = 'rgba(196, 213, 188, 0.1)';
+        });
+        
+        section.appendChild(nameInput);
+        section.appendChild(submitButton);
+    }
+    
+    parentElement.appendChild(section);
+}
+
+// Helper function to create Neptune party button
+function createNeptunePartyButton(parentElement, neptuneObject) {
+    // Initialize party count if not exists
+    if (!neptuneObject.partyCount) {
+        neptuneObject.partyCount = 0;
+    }
+    
+    const section = document.createElement('div');
+    section.style.marginTop = '1rem';
+    section.style.paddingTop = '1rem';
+    section.style.borderTop = '1px solid rgba(196, 213, 188, 0.2)';
+    
+    // If already partied 5 times, show final message
+    if (neptuneObject.partyCount >= 5) {
+        neptuneObject.exploreContent = 'You cannot party any harder.';
+        const contentElement = document.createElement('p');
+        contentElement.textContent = neptuneObject.exploreContent;
+        contentElement.style.color = 'var(--color--foreground)';
+        contentElement.style.opacity = '0.7';
+        contentElement.style.padding = '1rem';
+        section.appendChild(contentElement);
+        parentElement.appendChild(section);
+        return;
+    }
+    
+    // Function to update button state based on money
+    const updateButtonState = () => {
+        const hasMoney = tradingGame && tradingGame.money >= 100;
+        button.disabled = !hasMoney || neptuneObject.partyCount >= 5;
+        button.style.backgroundColor = (hasMoney && neptuneObject.partyCount < 5) ? 'rgba(196, 213, 188, 0.1)' : 'rgba(196, 213, 188, 0.05)';
+        button.style.cursor = (hasMoney && neptuneObject.partyCount < 5) ? 'pointer' : 'not-allowed';
+        button.style.opacity = (hasMoney && neptuneObject.partyCount < 5) ? '1' : '0.5';
+    };
+    
+    const button = document.createElement('button');
+    button.textContent = 'PARTY';
+    button.style.width = '100%';
+    button.style.padding = '0.75rem';
+    button.style.fontFamily = 'var(--font-primary)';
+    button.style.fontWeight = '700';
+    button.style.fontSize = '0.625rem';
+    button.style.textTransform = 'uppercase';
+    button.style.letterSpacing = '0.05em';
+    button.style.color = 'var(--color--foreground)';
+    button.style.border = '1px solid rgba(196, 213, 188, 0.3)';
+    button.style.borderRadius = '4px';
+    button.style.transition = 'all 0.2s';
+    
+    // Initial button state
+    updateButtonState();
+    
+    // Hover effects
+    button.addEventListener('mouseenter', () => {
+        if (!button.disabled) {
+            button.style.backgroundColor = 'rgba(196, 213, 188, 0.2)';
+        }
+    });
+    button.addEventListener('mouseleave', () => {
+        updateButtonState();
+    });
+    
+    // Click handler
+    button.addEventListener('click', () => {
+        if (neptuneObject.partyCount >= 5) return;
+        
+        // Check if still has $100
+        const currentMoney = tradingGame && tradingGame.money;
+        if (!currentMoney || currentMoney < 100) {
+            updateButtonState();
+            return;
+        }
+        
+        // Deduct $100
+        tradingGame.money -= 100;
+        neptuneObject.partyCount++;
+        
+        // Create confetti animation
+        createConfetti();
+        
+        // If this was the 5th party, add Aura and show message
+        if (neptuneObject.partyCount >= 5) {
+            // Add 1 Aura to commodities
+            if (tradingGame) {
+                tradingGame.commodities['aura'] = (tradingGame.commodities['aura'] || 0) + 1;
+            }
+            
+            // Update explore content
+            neptuneObject.exploreContent = 'You cannot party any harder.';
+            
+            // Show temporary message that fades away
+            const tempMessage = document.createElement('p');
+            tempMessage.textContent = 'You have been gifted 1 Aura.';
+            tempMessage.style.color = 'var(--color--foreground)';
+            tempMessage.style.opacity = '1';
+            tempMessage.style.padding = '1rem';
+            tempMessage.style.transition = 'opacity 3s ease-out';
+            section.appendChild(tempMessage);
+            
+            // Fade out after 3 seconds
+            setTimeout(() => {
+                tempMessage.style.opacity = '0';
+                setTimeout(() => {
+                    if (tempMessage.parentElement) {
+                        tempMessage.remove();
+                    }
+                }, 3000);
+            }, 2000);
+            
+            // Disable button
+            button.disabled = true;
+            button.style.opacity = '0.5';
+            button.style.cursor = 'not-allowed';
+            button.style.backgroundColor = 'rgba(196, 213, 188, 0.05)';
+        }
+        
+        // Update button state
+        updateButtonState();
+        
+        // Update UI
+        if (window.renderInventory) {
+            window.renderInventory();
+        }
+        if (window.updateExplorePanel) {
+            window.updateExplorePanel();
+        }
+        
+        // Visual feedback
+        button.style.backgroundColor = 'rgba(196, 213, 188, 0.3)';
+        setTimeout(() => {
+            updateButtonState();
+        }, 200);
+    });
+    
+    section.appendChild(button);
+    parentElement.appendChild(section);
+}
+
+// Helper function to create Black Cube sacrifice button
+function createBlackCubeSacrificeButton(parentElement, blackCubeObject) {
+    // Initialize sacrifice state if not exists
+    if (!blackCubeObject.hasSacrificed9Slaves) {
+        blackCubeObject.hasSacrificed9Slaves = false;
+    }
+    
+    const section = document.createElement('div');
+    section.style.marginTop = '1rem';
+    section.style.paddingTop = '1rem';
+    section.style.borderTop = '1px solid rgba(196, 213, 188, 0.2)';
+    
+    // Update explore content based on state
+    if (!blackCubeObject.hasSacrificed9Slaves) {
+        blackCubeObject.exploreContent = 'Sacrifice 9 Slaves to Moloch.';
+    } else {
+        blackCubeObject.exploreContent = 'Sacrifice 1 Baby to Moloch';
+    }
+    
+    const button = document.createElement('button');
+    
+    // Function to update button state
+    const updateButtonState = () => {
+        if (!blackCubeObject.hasSacrificed9Slaves) {
+            // First stage: need 9 slaves
+            const slaveCount = tradingGame && tradingGame.commodities ? (tradingGame.commodities['slaves'] || 0) : 0;
+            const hasEnoughSlaves = slaveCount >= 9;
+            button.disabled = !hasEnoughSlaves;
+            button.style.backgroundColor = hasEnoughSlaves ? 'rgba(196, 213, 188, 0.1)' : 'rgba(196, 213, 188, 0.05)';
+            button.style.cursor = hasEnoughSlaves ? 'pointer' : 'not-allowed';
+            button.style.opacity = hasEnoughSlaves ? '1' : '0.5';
+        } else {
+            // Second stage: need 1 baby
+            const hasBaby = inventoryManager && inventoryManager.hasItem('baby', 1);
+            button.disabled = !hasBaby;
+            button.style.backgroundColor = hasBaby ? 'rgba(196, 213, 188, 0.1)' : 'rgba(196, 213, 188, 0.05)';
+            button.style.cursor = hasBaby ? 'pointer' : 'not-allowed';
+            button.style.opacity = hasBaby ? '1' : '0.5';
+        }
+    };
+    button.textContent = 'SACRIFICE';
+    button.style.width = '100%';
+    button.style.padding = '0.75rem';
+    button.style.fontFamily = 'var(--font-primary)';
+    button.style.fontWeight = '700';
+    button.style.fontSize = '0.625rem';
+    button.style.textTransform = 'uppercase';
+    button.style.letterSpacing = '0.05em';
+    button.style.color = 'var(--color--foreground)';
+    button.style.border = '1px solid rgba(196, 213, 188, 0.3)';
+    button.style.borderRadius = '4px';
+    button.style.transition = 'all 0.2s';
+    
+    // Initial button state
+    updateButtonState();
+    
+    // Hover effects
+    button.addEventListener('mouseenter', () => {
+        if (!button.disabled) {
+            button.style.backgroundColor = 'rgba(196, 213, 188, 0.2)';
+        }
+    });
+    button.addEventListener('mouseleave', () => {
+        updateButtonState();
+    });
+    
+    // Click handler
+    button.addEventListener('click', () => {
+        if (!blackCubeObject.hasSacrificed9Slaves) {
+            // First sacrifice: 9 slaves
+            const slaveCount = tradingGame && tradingGame.commodities ? (tradingGame.commodities['slaves'] || 0) : 0;
+            if (slaveCount < 9) {
+                updateButtonState();
+                return;
+            }
+            
+            // Remove 9 slaves
+            if (tradingGame && tradingGame.commodities) {
+                tradingGame.commodities['slaves'] = Math.max(0, (tradingGame.commodities['slaves'] || 0) - 9);
+            }
+            
+            // Gift rewards: 5 fuel and $5000
+            if (tradingGame) {
+                // Add 5 fuel
+                tradingGame.commodities['fuel'] = (tradingGame.commodities['fuel'] || 0) + 5;
+                // Add $5000
+                tradingGame.money = (tradingGame.money || 0) + 5000;
+            }
+            
+            // Mark as having sacrificed 9 slaves
+            blackCubeObject.hasSacrificed9Slaves = true;
+            blackCubeObject.exploreContent = 'Sacrifice 1 Baby to Moloch';
+            
+            // Automatically travel back to Earth (consumes 1 fuel)
+            if (!travelState.isTraveling) {
+                startTravel('EARTH');
+            }
+            
+            // Update button state for next stage
+            updateButtonState();
+        } else {
+            // Second sacrifice: 1 baby
+            if (!inventoryManager || !inventoryManager.hasItem('baby', 1)) {
+                updateButtonState();
+                return;
+            }
+            
+            // Remove 1 baby
+            inventoryManager.removeItem('baby', 1);
+            
+            // Update explore content (could add a final message here if needed)
+            // For now, just keep the same message
+        }
+        
+        // Update UI
+        if (window.renderInventory) {
+            window.renderInventory();
+        }
+        if (window.updateExplorePanel) {
+            window.updateExplorePanel();
+        }
+        
+        // Visual feedback
+        button.style.backgroundColor = 'rgba(196, 213, 188, 0.3)';
+        setTimeout(() => {
+            updateButtonState();
+        }, 200);
+    });
+    
+    section.appendChild(button);
+    parentElement.appendChild(section);
+}
+
+// Helper function to create rainbow confetti animation
+function createConfetti() {
+    const confettiContainer = document.createElement('div');
+    confettiContainer.style.position = 'fixed';
+    confettiContainer.style.top = '0';
+    confettiContainer.style.left = '0';
+    confettiContainer.style.width = '100%';
+    confettiContainer.style.height = '100%';
+    confettiContainer.style.pointerEvents = 'none';
+    confettiContainer.style.zIndex = '9999';
+    document.body.appendChild(confettiContainer);
+    
+    const colors = ['#ff0000', '#ff7f00', '#ffff00', '#00ff00', '#0000ff', '#4b0082', '#9400d3'];
+    const confettiCount = 50;
+    
+    for (let i = 0; i < confettiCount; i++) {
+        const confetti = document.createElement('div');
+        const color = colors[Math.floor(Math.random() * colors.length)];
+        confetti.style.position = 'absolute';
+        confetti.style.width = '10px';
+        confetti.style.height = '10px';
+        confetti.style.backgroundColor = color;
+        confetti.style.left = Math.random() * 100 + '%';
+        confetti.style.top = '-10px';
+        confetti.style.borderRadius = '50%';
+        confetti.style.opacity = '0.9';
+        
+        const angle = (Math.random() - 0.5) * 60; // -30 to 30 degrees
+        const velocity = 2 + Math.random() * 3; // 2-5
+        const rotation = Math.random() * 360;
+        
+        confetti.style.transform = `rotate(${rotation}deg)`;
+        confetti.style.transition = 'none';
+        
+        confettiContainer.appendChild(confetti);
+        
+        // Animate confetti falling
+        setTimeout(() => {
+            const endX = Math.sin(angle * Math.PI / 180) * 200;
+            const endY = window.innerHeight + 100;
+            confetti.style.transform = `translate(${endX}px, ${endY}px) rotate(${rotation + 720}deg)`;
+            confetti.style.transition = `transform ${velocity}s ease-out, opacity ${velocity}s ease-out`;
+            confetti.style.opacity = '0';
+        }, 10);
+        
+        // Remove confetti after animation
+        setTimeout(() => {
+            if (confetti.parentElement) {
+                confetti.remove();
+            }
+        }, velocity * 1000 + 100);
+    }
+    
+    // Remove container after all confetti is gone
+    setTimeout(() => {
+        if (confettiContainer.parentElement) {
+            confettiContainer.remove();
+        }
+    }, 6000);
+}
+
+// Helper function to create donate exotic button for Venus
+function createDonateExoticButton(parentElement, venusObject) {
+    // Only show button if not already donated
+    if (venusObject.hasDonatedExotic) {
+        return;
+    }
+    
+    const section = document.createElement('div');
+    section.style.marginTop = '1rem';
+    section.style.paddingTop = '1rem';
+    section.style.borderTop = '1px solid rgba(196, 213, 188, 0.2)';
+    
+    const hasExotic = tradingGame && tradingGame.getCommodityQuantity('exotic') > 0;
+    const button = document.createElement('button');
+    button.textContent = 'DONATE EXOTIC';
+    button.disabled = !hasExotic;
+    button.style.width = '100%';
+    button.style.padding = '0.75rem';
+    button.style.fontFamily = 'var(--font-primary)';
+    button.style.fontWeight = '700';
+    button.style.fontSize = '0.625rem';
+    button.style.textTransform = 'uppercase';
+    button.style.letterSpacing = '0.05em';
+    button.style.color = 'var(--color--foreground)';
+    button.style.backgroundColor = hasExotic ? 'rgba(196, 213, 188, 0.1)' : 'rgba(196, 213, 188, 0.05)';
+    button.style.border = '1px solid rgba(196, 213, 188, 0.3)';
+    button.style.borderRadius = '4px';
+    button.style.cursor = hasExotic ? 'pointer' : 'not-allowed';
+    button.style.opacity = hasExotic ? '1' : '0.5';
+    button.style.transition = 'all 0.2s';
+    
+    // Hover effects
+    if (hasExotic) {
+        button.addEventListener('mouseenter', () => {
+            button.style.backgroundColor = 'rgba(196, 213, 188, 0.2)';
+        });
+        button.addEventListener('mouseleave', () => {
+            button.style.backgroundColor = 'rgba(196, 213, 188, 0.1)';
+        });
+    }
+    
+    // Click handler
+    button.addEventListener('click', () => {
+        if (!hasExotic || venusObject.hasDonatedExotic) return;
+        
+        // Check if still has exotic
+        const currentHasExotic = tradingGame && tradingGame.getCommodityQuantity('exotic') > 0;
+        if (!currentHasExotic) return;
+        
+        // Donate 1 exotic
+        tradingGame.commodities['exotic'] = Math.max(0, tradingGame.commodities['exotic'] - 1);
+        venusObject.hasDonatedExotic = true;
+        
+        // Update explore content
+        venusObject.exploreContent = 'Tune to Frequency 6 to travel to Mercury.';
+        
+        // Update UI - refresh inventory and explore panel
+        if (window.renderInventory) {
+            window.renderInventory();
+        }
+        if (window.updateExplorePanel) {
+            window.updateExplorePanel();
+        }
+        
+        // Visual feedback
+        button.style.backgroundColor = 'rgba(196, 213, 188, 0.3)';
+        setTimeout(() => {
+            button.style.backgroundColor = 'rgba(196, 213, 188, 0.1)';
+        }, 200);
+    });
+    
+    section.appendChild(button);
+    parentElement.appendChild(section);
 }
 
 // Initialize explore panel
@@ -2157,16 +3605,107 @@ const inventoryDescription = document.getElementById('inventory-description');
 // Render inventory items
 function renderInventory() {
     inventoryItems.innerHTML = '';
-    const items = inventoryManager.getAllItems();
     
-    items.forEach(item => {
+    // Get items from inventory manager (Body, Soul, Spirit)
+    const inventoryItems_list = inventoryManager.getAllItems();
+    
+    // Get commodities from trading game (only show if quantity > 0)
+    const commodities = tradingGame ? tradingGame.getAllCommodities().filter(c => c.quantity > 0) : [];
+    
+    // Separate Light, Body/Soul/Spirit, and other items
+    const specialItems = ['body', 'soul', 'spirit'];
+    const lightItem = inventoryItems_list.find(item => item.id === 'light');
+    const bodySoulSpirit = inventoryItems_list.filter(item => specialItems.includes(item.id));
+    const otherInventoryItems = inventoryItems_list.filter(item => !specialItems.includes(item.id) && item.id !== 'light');
+    
+    // Render Light first at the top with shine effect (if it exists)
+    if (lightItem) {
+        const lightElement = createInventoryItemElement(lightItem, true); // true = has shine
+        // Hide quantity for light since it can't be stacked
+        const quantityEl = lightElement.querySelector('.inventory-item-quantity');
+        if (quantityEl) {
+            quantityEl.style.display = 'none';
+        }
+        inventoryItems.appendChild(lightElement);
+        
+        // Add separator after light if there are other items
+        if (bodySoulSpirit.length > 0 || otherInventoryItems.length > 0 || commodities.length > 0 || (tradingGame && tradingGame.money > 0)) {
+            const separator = document.createElement('div');
+            separator.style.height = '1px';
+            separator.style.backgroundColor = 'rgba(196, 213, 188, 0.2)';
+            separator.style.margin = '0.5rem 0';
+            inventoryItems.appendChild(separator);
+        }
+    }
+    
+    // Render Body/Soul/Spirit next with shine effect
+    bodySoulSpirit.forEach(item => {
+        const itemElement = createInventoryItemElement(item, true); // true = has shine
+        inventoryItems.appendChild(itemElement);
+    });
+    
+    // Add separator if we have Body/Soul/Spirit and other items (but not if light already added separator)
+    if (!lightItem && bodySoulSpirit.length > 0 && (otherInventoryItems.length > 0 || commodities.length > 0 || (tradingGame && tradingGame.money > 0))) {
+        const separator = document.createElement('div');
+        separator.style.height = '1px';
+        separator.style.backgroundColor = 'rgba(196, 213, 188, 0.2)';
+        separator.style.margin = '0.5rem 0';
+        inventoryItems.appendChild(separator);
+    }
+    
+    // Render $ (money) - always show, even if 0
+    if (tradingGame) {
+        const moneyItem = {
+            id: 'money',
+            name: '$',
+            quantity: tradingGame.money,
+            description: 'Currency for trading commodities'
+        };
+        const moneyElement = createInventoryItemElement(moneyItem, false);
+        inventoryItems.appendChild(moneyElement);
+        
+        // Add separator after money if there are commodities
+        if (commodities.length > 0) {
+            const separator = document.createElement('div');
+            separator.style.height = '1px';
+            separator.style.backgroundColor = 'rgba(196, 213, 188, 0.2)';
+            separator.style.margin = '0.5rem 0';
+            inventoryItems.appendChild(separator);
+        }
+    }
+    
+    // Render commodities
+    commodities.forEach(commodity => {
+        const commodityItem = {
+            id: commodity.id,
+            name: tradingUI.commodityNames[commodity.id] || commodity.id,
+            quantity: commodity.quantity,
+            description: `${tradingUI.commodityNames[commodity.id] || commodity.id} commodity`
+        };
+        const itemElement = createInventoryItemElement(commodityItem, false);
+        inventoryItems.appendChild(itemElement);
+    });
+    
+    // Render other inventory items (if any)
+    otherInventoryItems.forEach(item => {
+        const itemElement = createInventoryItemElement(item, false);
+        inventoryItems.appendChild(itemElement);
+    });
+}
+
+// Helper function to create inventory item element
+function createInventoryItemElement(item, hasShine = false) {
         const itemElement = document.createElement('div');
         itemElement.className = 'inventory-item';
         itemElement.dataset.itemId = item.id;
+    
+    if (hasShine) {
+        itemElement.classList.add('inventory-item-shine');
+    }
         
         const nameElement = document.createElement('div');
         nameElement.className = 'inventory-item-name';
-        nameElement.textContent = inventoryManager.getItemDisplayName(item.id, item.quantity);
+    nameElement.textContent = item.name || inventoryManager.getItemDisplayName(item.id, item.quantity);
         
         const quantityElement = document.createElement('div');
         quantityElement.className = 'inventory-item-quantity';
@@ -2185,12 +3724,19 @@ function renderInventory() {
             itemElement.classList.add('selected');
             
             // Show description
+        if (item.description) {
+            inventoryDescription.textContent = item.description;
+        } else if (inventoryManager.getItemDescription) {
             inventoryDescription.textContent = inventoryManager.getItemDescription(item.id);
+        }
         });
         
-        inventoryItems.appendChild(itemElement);
-    });
+    return itemElement;
 }
+
+// Make renderInventory and updateExplorePanel available globally for trading UI updates
+window.renderInventory = renderInventory;
+window.updateExplorePanel = updateExplorePanel;
 
 inventoryToggle.addEventListener('click', () => {
     const isOpening = !inventoryPanel.classList.contains('open');
@@ -2262,11 +3808,10 @@ const stepperLabels = [
     'VERTICAL',
     'SPACING',
     'SPEED',
-    'COLOR INTENSITY'
+    'FREQUENCY'
 ];
 
-const steppers = [];
-
+// steppers array already declared above, now populate it
 for (let i = 0; i < 5; i++) {
     const stepperContainer = document.createElement('div');
     stepperContainer.className = 'stepper-container';
@@ -2295,8 +3840,33 @@ for (let i = 0; i < 5; i++) {
                 // Value 0 = 0 (stopped), Value 5 = 0.002 (current), Value 10 = 0.004 (max)
                 // Formula: speed = value * 0.0004
                 rotationSpeed = value * 0.0004;
-            } else {
-                console.log(`Stepper ${i + 1} value:`, value);
+                
+                // Award Time Traveller achievement when speed is adjusted
+                if (window.scoreManager) {
+                    const isNewAchievement = window.scoreManager.addAchievement('Time Traveller');
+                    // Update score display if it exists
+                    if (isNewAchievement && window.updateScoreDisplay) {
+                        window.updateScoreDisplay();
+                    }
+                }
+            } else if (i === 4) {
+                // Frequency control: when frequency is 4, hide labels and lines
+                // When frequency is 6, Mercury is added to greenlist
+                if (value === 4) {
+                    // Hide labels and lines when frequency is 4
+                    if (sceneManager) {
+                        sceneManager.setLabelsAndLinesVisible(false);
+                    }
+                } else {
+                    // Show labels and lines for other frequencies
+                    if (sceneManager) {
+                        sceneManager.setLabelsAndLinesVisible(true);
+                    }
+                }
+                // Refresh explore panel to update greenlist display
+                if (window.updateExplorePanel) {
+                    window.updateExplorePanel();
+                }
             }
         }
     });
@@ -2304,5 +3874,77 @@ for (let i = 0; i < 5; i++) {
     steppers.push(stepper);
 }
 
+// Add score and achievements section at the bottom
+const scoreSection = document.createElement('div');
+scoreSection.className = 'score-section';
+scoreSection.style.marginTop = 'auto';
+scoreSection.style.paddingTop = '2rem';
+scoreSection.style.borderTop = '1px solid rgba(196, 213, 188, 0.2)';
 
+const description = document.createElement('div');
+description.className = 'score-description';
+description.style.fontSize = '0.625rem';
+description.style.lineHeight = '1.5';
+description.style.marginBottom = '1.5rem';
+description.style.color = 'var(--color--foreground)';
+description.innerHTML = 'Ascended Masters have <u>fewer</u> points and achievements.';
+
+const scoreLabel = document.createElement('div');
+scoreLabel.className = 'score-label';
+scoreLabel.style.fontSize = '0.625rem';
+scoreLabel.style.textTransform = 'uppercase';
+scoreLabel.style.letterSpacing = '0.1em';
+scoreLabel.style.marginBottom = '0.5rem';
+scoreLabel.style.color = 'var(--color--foreground)';
+scoreLabel.textContent = 'SCORE:';
+
+const scoreValue = document.createElement('div');
+scoreValue.className = 'score-value';
+scoreValue.style.fontSize = '0.625rem';
+scoreValue.style.color = 'var(--color--foreground)';
+scoreValue.style.opacity = '0.7';
+scoreValue.style.marginBottom = '1rem';
+
+const achievementsLabel = document.createElement('div');
+achievementsLabel.className = 'achievements-label';
+achievementsLabel.style.fontSize = '0.625rem';
+achievementsLabel.style.textTransform = 'uppercase';
+achievementsLabel.style.letterSpacing = '0.1em';
+achievementsLabel.style.marginTop = '1rem';
+achievementsLabel.style.marginBottom = '0.5rem';
+achievementsLabel.style.color = 'var(--color--foreground)';
+achievementsLabel.textContent = 'ACHIEVEMENTS:';
+
+const achievementsList = document.createElement('div');
+achievementsList.className = 'achievements-list';
+achievementsList.style.fontSize = '0.625rem';
+achievementsList.style.color = 'var(--color--foreground)';
+achievementsList.style.opacity = '0.7';
+achievementsList.style.lineHeight = '1.5';
+
+// Function to update score and achievements display
+function updateScoreDisplay() {
+    if (window.scoreManager) {
+        scoreValue.textContent = window.scoreManager.getScore().toString();
+        const achievements = window.scoreManager.getAchievements();
+        if (achievements.length === 0) {
+            achievementsList.textContent = 'None';
+        } else {
+            achievementsList.textContent = achievements.join(', ');
+        }
+    }
+}
+
+// Make updateScoreDisplay available globally
+window.updateScoreDisplay = updateScoreDisplay;
+
+scoreSection.appendChild(description);
+scoreSection.appendChild(scoreLabel);
+scoreSection.appendChild(scoreValue);
+scoreSection.appendChild(achievementsLabel);
+scoreSection.appendChild(achievementsList);
+panelContent.appendChild(scoreSection);
+
+// Initialize display
+updateScoreDisplay();
 
