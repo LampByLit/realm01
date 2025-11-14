@@ -469,7 +469,7 @@ export class SceneObject {
         flamesWrapper.className = 'fire-wrapper';
         flamesWrapper.style.position = 'fixed';
         flamesWrapper.style.pointerEvents = 'none';
-        flamesWrapper.style.zIndex = '10';
+        flamesWrapper.style.zIndex = '-50'; // Start with low z-index, will be updated based on depth
         flamesWrapper.style.transformOrigin = 'center center';
         
         const fire = document.createElement('div');
@@ -2988,7 +2988,8 @@ void main() {
         wrapper.style.left = '0';
         wrapper.style.top = '50%';
         wrapper.style.transform = 'translateY(-50%)';
-        wrapper.style.pointerEvents = 'none';
+        wrapper.style.pointerEvents = 'auto'; // Enable pointer events for clicking
+        wrapper.style.cursor = 'pointer'; // Show pointer cursor
         wrapper.style.zIndex = '100';
         wrapper.style.display = 'flex';
         wrapper.style.alignItems = 'center';
@@ -3008,12 +3009,13 @@ void main() {
         labelEl.style.textTransform = 'uppercase';
         labelEl.style.letterSpacing = '0.1em';
         labelEl.style.zIndex = '101';
+        labelEl.style.pointerEvents = 'none'; // Prevent text element from blocking clicks
         
         wrapper.appendChild(labelEl);
         document.body.appendChild(wrapper);
         
-        // Store reference to wrapper for position updates
-        wrapper.userData = { labelEl };
+        // Store reference to wrapper and SceneObject for position updates and click detection
+        wrapper.userData = { labelEl, sceneObject: this };
         
         return wrapper; // Return wrapper element
     }
@@ -3024,7 +3026,8 @@ void main() {
         wrapper.className = 'lefthand-label-wrapper';
         wrapper.style.position = 'fixed';
         wrapper.style.left = '0';
-        wrapper.style.pointerEvents = 'none';
+        wrapper.style.pointerEvents = 'auto'; // Enable pointer events for clicking
+        wrapper.style.cursor = 'pointer'; // Show pointer cursor
         wrapper.style.zIndex = '100';
         wrapper.style.display = 'flex';
         wrapper.style.alignItems = 'center';
@@ -3067,11 +3070,13 @@ void main() {
         labelEl.style.letterSpacing = '0.1em';
         labelEl.style.zIndex = '101';
         
+        labelEl.style.pointerEvents = 'none'; // Prevent text element from blocking clicks
+        
         wrapper.appendChild(labelEl);
         document.body.appendChild(wrapper);
         
-        // Store position percentage for updates
-        wrapper.userData = { labelEl, positionPercentage, offset };
+        // Store position percentage and SceneObject for updates and click detection
+        wrapper.userData = { labelEl, positionPercentage, offset, sceneObject: this };
         
         return wrapper; // Return wrapper element
     }
@@ -3660,6 +3665,17 @@ void main() {
         // Convert world size to screen size (approximate)
         const fov = this.camera.fov * (Math.PI / 180);
         const screenSize = (this.flamesSize / distance) * (window.innerHeight / (2 * Math.tan(fov / 2))) * 2;
+        
+        // Adjust z-index based on depth to respect 3D ordering
+        // vector.z is in normalized device coordinates (-1 to 1, where 1 is furthest)
+        // Use depth to set z-index: further objects get lower z-index
+        // Convert z from [-1, 1] to a z-index range
+        // Objects closer to camera (lower z) should have higher z-index
+        const depthZ = vector.z; // -1 (near) to 1 (far)
+        // Map to z-index: closer objects (z near -1) get higher z-index
+        // Use range from -100 (far) to 0 (near) so it appears behind canvas content
+        const zIndex = Math.round(depthZ * 50) - 50; // Range: -100 to 0
+        this.flamesWrapper.style.zIndex = zIndex.toString();
         
         // Apply transform
         this.flamesWrapper.style.left = `${x}px`;

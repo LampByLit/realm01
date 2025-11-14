@@ -49,6 +49,14 @@ body {
     pointer-events: auto;
 }
 
+.inventory-toggle {
+    top: 72px; /* Position underneath VIEW button */
+}
+
+.explore-toggle {
+    top: 120px; /* Position underneath inventory button */
+}
+
 .panel-toggle.hidden {
     opacity: 0;
     pointer-events: none;
@@ -81,9 +89,19 @@ body {
 .panel-header {
     display: flex;
     align-items: center;
-    justify-content: flex-end;
+    justify-content: space-between;
     padding: 16px;
     background: transparent;
+}
+
+.explore-title {
+    font-family: var(--font-primary);
+    font-weight: 700;
+    font-size: 0.625rem;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    color: var(--color--foreground);
+    margin: 0;
 }
 
 .panel-close {
@@ -142,6 +160,127 @@ body {
 
 .panel-content::-webkit-scrollbar-thumb:hover {
     background: rgba(196, 213, 188, 0.3);
+}
+
+/* Inventory Panel */
+.inventory-panel {
+    z-index: 999; /* Slightly lower than control panel */
+}
+
+/* Explore Panel */
+.explore-panel {
+    z-index: 998; /* Lower than inventory panel */
+}
+
+.inventory-panel .panel-content {
+    gap: 0; /* Override default gap for inventory */
+}
+
+.inventory-items {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+}
+
+.inventory-item {
+    padding: 0.75rem;
+    border: 1px solid var(--color--foreground);
+    background: transparent;
+    color: var(--color--foreground);
+    font-family: var(--font-primary);
+    font-weight: 700;
+    font-size: 0.75rem;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    text-align: left;
+}
+
+.inventory-item:hover {
+    background: rgba(196, 213, 188, 0.1);
+}
+
+.inventory-item.selected {
+    background: rgba(196, 213, 188, 0.2);
+    border-color: rgba(196, 213, 188, 0.5);
+}
+
+.inventory-item-name {
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    margin-bottom: 0.25rem;
+}
+
+.inventory-item-quantity {
+    font-size: 0.625rem;
+    opacity: 0.7;
+    font-weight: 400;
+}
+
+.inventory-description {
+    margin-top: 1rem;
+    padding-top: 1rem;
+    border-top: 1px solid var(--color--foreground);
+    font-family: var(--font-primary);
+    font-weight: 400;
+    font-size: 0.75rem;
+    line-height: 1.5;
+    color: var(--color--foreground);
+    opacity: 0.8;
+    min-height: 60px;
+}
+
+.inventory-description:empty {
+    display: none;
+}
+
+/* Object Info Box (bottom right on click) */
+.object-info-box {
+    position: fixed;
+    bottom: 24px;
+    right: 24px;
+    z-index: 10000;
+    font-family: var(--font-primary);
+    font-weight: 700;
+    font-size: 1rem;
+    color: var(--color--foreground);
+    background: rgba(10, 10, 10, 0.9);
+    border: 1px solid var(--color--foreground);
+    padding: 1rem 1.5rem;
+    display: none;
+    max-width: 300px;
+    letter-spacing: -0.03em;
+}
+
+.object-info-box.show {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+}
+
+.travel-button {
+    font-family: var(--font-primary);
+    font-weight: 700;
+    font-size: 0.875rem;
+    color: var(--color--foreground);
+    background: transparent;
+    border: 1px solid var(--color--foreground);
+    padding: 0.5rem 1rem;
+    cursor: pointer;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    transition: all 0.3s ease;
+    width: 100%;
+}
+
+.travel-button:hover {
+    background: var(--color--foreground);
+    color: var(--color--background);
+}
+
+.travel-button:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
 }
 
 /* PillStepper Styles */
@@ -952,7 +1091,7 @@ body {
 }
 
 .fire {
-    font-size: 12px;
+    font-size: 8px;
     filter: blur(0.02em);
     -webkit-filter: blur(0.02em);
     margin: 1.5em auto 0 auto;
