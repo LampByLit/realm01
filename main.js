@@ -6238,6 +6238,57 @@ function createInventoryItemElement(item, hasShine = false) {
                 }
             }
 
+            // Add transcend button for FTL drives (3 FTL drives = 1 Entropy)
+            if (item.id === 'ftl' && window.inventoryManager && window.tradingGame) {
+                const ftlItem = window.inventoryManager.getItem('ftl');
+                if (ftlItem && ftlItem.quantity >= 3) {
+                    // Create description with transcend button
+                    const descElement = document.createElement('div');
+                    descElement.innerHTML = descriptionText;
+
+                    const transcendButton = document.createElement('button');
+                    transcendButton.textContent = 'TRANSCEND (3 FTL → 1 ENTROPY)';
+                    transcendButton.style.width = '100%';
+                    transcendButton.style.marginTop = '1rem';
+                    transcendButton.style.padding = '0.75rem';
+                    transcendButton.style.fontFamily = 'var(--font-primary)';
+                    transcendButton.style.fontWeight = '700';
+                    transcendButton.style.fontSize = '0.625rem';
+                    transcendButton.style.textTransform = 'uppercase';
+                    transcendButton.style.letterSpacing = '0.05em';
+                    transcendButton.style.color = 'var(--color--foreground)';
+                    transcendButton.style.backgroundColor = 'rgba(196, 213, 188, 0.1)';
+                    transcendButton.style.border = '1px solid rgba(196, 213, 188, 0.3)';
+                    transcendButton.style.borderRadius = '4px';
+                    transcendButton.style.cursor = 'pointer';
+                    transcendButton.style.transition = 'all 0.2s';
+
+                    transcendButton.addEventListener('click', () => {
+                        // Check if player still has 3 FTL drives
+                        const currentFtlItem = window.inventoryManager.getItem('ftl');
+                        if (currentFtlItem && currentFtlItem.quantity >= 3) {
+                            // Consume 3 FTL drives
+                            window.inventoryManager.removeItem('ftl', 3);
+                            // Add 1 Entropy
+                            window.tradingGame.commodities['entropy'] = (window.tradingGame.commodities['entropy'] || 0) + 1;
+
+                            // Success - refresh inventory and explore panel, clear description
+                            if (window.renderInventory) {
+                                window.renderInventory();
+                            }
+                            if (window.updateExplorePanel) {
+                                window.updateExplorePanel();
+                            }
+                            inventoryDescription.innerHTML = '';
+                        }
+                    });
+
+                    descElement.appendChild(transcendButton);
+                    inventoryDescription.appendChild(descElement);
+                    return;
+                }
+            }
+
             // Add deploy button for merchants
             if (item.id === 'merchant' && window.inventoryManager && window.tradingGame) {
                 const merchantItem = window.inventoryManager.getItem('merchant');
