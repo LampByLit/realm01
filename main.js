@@ -1654,13 +1654,16 @@ function animate() {
                 travelIndicator.classList.remove('show');
             }
             
-            // Advance player turn (NPCs already moved at start of travel)
+            // Advance player turn
             if (tradingGame) {
                 const fuelCost = tradingGame.getFuelCost(destinationName);
                 tradingGame.consumeFuel(fuelCost);
                 tradingGame.advanceTurn(destinationName);
             }
-            
+
+            // Advance NPC turns now that player travel is complete
+            npcManager.advanceTurn();
+
             currentLocation = destinationName; // Update current location
 
             // Update trading game current location
@@ -1757,6 +1760,16 @@ function isOnCurrentGreenlist(objectName, baseIsGreenlisted) {
     // Anja is greenlisted once Jupiter name is entered
     if (objectName && objectName.toLowerCase() === 'anja') {
         if (localStorage.getItem('jupiterNameEntered')) {
+            return true;
+        }
+    }
+
+    // Pleiades is permanently greenlisted after first Pleiadian encounter
+    if (objectName && objectName.toLowerCase() === 'pleiades') {
+        const pleiadesGreenlisted = localStorage.getItem('pleiadesGreenlisted');
+        console.log('🟢 Greenlist check for Pleiades:', objectName, 'pleiadesGreenlisted:', pleiadesGreenlisted);
+        if (pleiadesGreenlisted === 'true') {
+            console.log('🟢 Pleiades is greenlisted!');
             return true;
         }
     }
@@ -2053,8 +2066,7 @@ function startTravel(destinationName) {
         return;
     }
 
-    // Check if NPCs should move this turn (simultaneously with player travel)
-    npcManager.advanceTurn();
+    // NPCs will advance their turns when player travel completes (for proper synchronization)
 
     // Get start position from current planet
     const startPos = new THREE.Vector3();

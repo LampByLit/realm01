@@ -1408,6 +1408,26 @@ body {
     backdrop-filter: blur(8px);
 }
 
+/* Venusian popup styling - yellow theme */
+.venusian-popup .npc-popup-content {
+    background: linear-gradient(145deg, #1a1a00 0%, #333300 25%, #262600 50%, #333300 75%, #1a1a00 100%);
+    border: 2px solid #ffff55;
+    box-shadow:
+        0 8px 32px rgba(255, 255, 85, 0.4),
+        0 0 0 1px rgba(255, 255, 85, 0.1),
+        inset 0 1px 0 rgba(255, 255, 255, 0.1);
+}
+
+/* Reptilian popup styling - green theme */
+.reptilian-popup .npc-popup-content {
+    background: linear-gradient(145deg, #001a00 0%, #003300 25%, #002600 50%, #003300 75%, #001a00 100%);
+    border: 3px solid #00ff00;
+    box-shadow:
+        0 8px 32px rgba(0, 255, 0, 0.4),
+        0 0 0 1px rgba(0, 255, 0, 0.1),
+        inset 0 1px 0 rgba(255, 255, 255, 0.1);
+}
+
 .npc-popup-content::before {
     content: '';
     position: absolute;
@@ -1423,6 +1443,22 @@ body {
     pointer-events: none;
 }
 
+/* Venusian popup overlay styling */
+.venusian-popup .npc-popup-content::before {
+    background: linear-gradient(135deg,
+        rgba(255, 255, 85, 0.1) 0%,
+        rgba(255, 255, 85, 0.05) 50%,
+        rgba(255, 255, 85, 0.1) 100%);
+}
+
+/* Reptilian popup overlay styling */
+.reptilian-popup .npc-popup-content::before {
+    background: linear-gradient(135deg,
+        rgba(0, 255, 0, 0.1) 0%,
+        rgba(0, 255, 0, 0.05) 50%,
+        rgba(0, 255, 0, 0.1) 100%);
+}
+
 .npc-speaker-label {
     color: #ff7777;
     font-family: var(--font-primary);
@@ -1436,6 +1472,20 @@ body {
     border-bottom: 1px solid rgba(255, 119, 119, 0.3);
     padding-bottom: 8px;
     position: relative;
+}
+
+/* Venusian speaker label styling */
+.venusian-popup .npc-speaker-label {
+    color: #ffff77;
+    text-shadow: 0 0 10px rgba(255, 255, 119, 0.9);
+    border-bottom: 1px solid rgba(255, 255, 119, 0.3);
+}
+
+/* Reptilian speaker label styling */
+.reptilian-popup .npc-speaker-label {
+    color: #00ff00;
+    text-shadow: 0 0 10px rgba(0, 255, 0, 0.9);
+    border-bottom: 1px solid rgba(0, 255, 0, 0.3);
 }
 
 .npc-speaker-label::after {
