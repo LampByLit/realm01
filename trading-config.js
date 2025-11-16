@@ -59,7 +59,8 @@ export const LOCATION_CONFIG = {
     'MOON': {
         fuelCost: 1,
         unlockCost: 0, // Already unlocked
-        availableCommodities: [COMMODITIES.SLAVES, COMMODITIES.ORE, COMMODITIES.IRON, COMMODITIES.GOLD, COMMODITIES.FUEL],
+        availableCommodities: [COMMODITIES.SLAVES, COMMODITIES.ORE, COMMODITIES.IRON, COMMODITIES.GOLD],
+        alwaysAvailableCommodities: [COMMODITIES.FUEL], // Fuel always available
         priceMultiplier: 1.2, // Usually more expensive (20% markup)
         specialPrices: {} // No special prices
     },

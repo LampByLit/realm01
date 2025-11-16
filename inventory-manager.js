@@ -27,6 +27,36 @@ export class InventoryManager {
                 name: 'Baby',
                 plural: 'Babies',
                 description: 'A small human child, innocent and pure.'
+            },
+            'ftl': {
+                name: 'FTL Drive',
+                plural: 'FTL Drives',
+                description: 'Faster-Than-Light propulsion system. Allows instantaneous travel across vast distances.'
+            },
+            'weapons': {
+                name: 'Weapon',
+                plural: 'Weapons',
+                description: 'Weapons provide +1 Power, or can be irreversibly deployed for +1 slave/turn.'
+            },
+            'robot': {
+                name: 'Robot',
+                plural: 'Robots',
+                description: 'Robots provide +5 Inventory, or can be irreversibly deployed for +$100/turn.'
+            },
+            'merchant': {
+                name: 'Merchant',
+                plural: 'Merchants',
+                description: 'Merchants provide +15 Inventory, or can be irreversibly deployed for +$250/turn.'
+            },
+            'army': {
+                name: 'Army',
+                plural: 'Armies',
+                description: 'Armies provide +5 Power, or can be irreversibly deployed for +5 slaves/turn.'
+            },
+            'archon': {
+                name: 'Archon',
+                plural: 'Archons',
+                description: 'Archons provide +15 Inventory and +10 Power, or can be irreversibly deployed for +$500/turn and +5 slaves/turn.'
             }
         };
         

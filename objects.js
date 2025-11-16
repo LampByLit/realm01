@@ -25,7 +25,7 @@ export function createAllObjects(sceneManager, spacing, planeSize, planesGroup) 
         maxRadius: 2.5, // Larger spread radius
         lineColor: 0xffffff,
         lineOpacity: 0.5,
-        infoboxContent: 'MILKY WAY\n\nThis is placeholder text for the Milky Way galaxy. More information will be added here.',
+        infoboxContent: 'MILKY WAY\n\nSpiral gateway of 400 billion souls. Home star 27,000 lights from galactic heart.',
         isGreenlisted: false,
         exploreContent: 'Exploring MILKY WAY...\n\nThe Milky Way is the galaxy that contains our Solar System.'
     });
@@ -48,7 +48,7 @@ export function createAllObjects(sceneManager, spacing, planeSize, planesGroup) 
         perpendicularAngle: true, // Rotate 90 degrees for perpendicular orientation
         lineColor: 0xffffff,
         lineOpacity: 0.5,
-        infoboxContent: 'ANDROMEDA\n\nThis is placeholder text for the Andromeda galaxy. More information will be added here.',
+        infoboxContent: 'ANDROMEDA\n\nApproaching sister galaxy. Cosmic union in 4 billion years.',
         isGreenlisted: false,
         exploreContent: 'Exploring ANDROMEDA...\n\nAndromeda is the closest major galaxy to the Milky Way.'
     });
@@ -213,7 +213,7 @@ export function createAllObjects(sceneManager, spacing, planeSize, planesGroup) 
         twinkleSpeed: 0.05, // Faster twinkling than Andromeda
         lineColor: 0xffffff,
         lineOpacity: 0.5,
-        infoboxContent: 'LARGE MAGELLANIC CLOUD\n\nThis is placeholder text for the Large Magellanic Cloud. More information will be added here.',
+        infoboxContent: 'LARGE MAGELLANIC CLOUD\n\nCloud companion of Milky Way. Birth nebula of newborn stars.',
         isGreenlisted: false,
         exploreContent: 'Exploring LARGE MAGELLANIC CLOUD...\n\nThe Large Magellanic Cloud is a satellite galaxy of the Milky Way.'
     });
@@ -426,7 +426,7 @@ export function createAllObjects(sceneManager, spacing, planeSize, planesGroup) 
         angle: uranusAngle, // Angle pointing outward from center
         lineColor: 0xffffff,
         lineOpacity: 0.5,
-        infoboxContent: 'URANUS\n\nThis is placeholder text for Uranus. More information will be added here.',
+        infoboxContent: 'URANUS\n\nUranus is an independent Slaver Colony, and trains Slaves into Armies.',
         isGreenlisted: false,
         exploreContent: 'Exploring URANUS...\n\nUranus is the seventh planet from the Sun and has a unique sideways rotation.'
     });
@@ -464,7 +464,7 @@ export function createAllObjects(sceneManager, spacing, planeSize, planesGroup) 
         angle: neptuneAngle, // Angle pointing outward from center
         lineColor: 0xffffff,
         lineOpacity: 0.5,
-        infoboxContent: 'NEPTUNE\n\nThis is placeholder text for Neptune. More information will be added here.',
+        infoboxContent: 'NEPTUNE\n\nStorm world of raging winds. Deep blue veil with dark vortex.',
         isGreenlisted: false,
         exploreContent: 'Pay $100 to Party on Neptune'
     });
@@ -491,7 +491,7 @@ export function createAllObjects(sceneManager, spacing, planeSize, planesGroup) 
         angle: gaiaBH1Angle, // Angle pointing outward from center
         lineColor: 0xffffff,
         lineOpacity: 0.5,
-        infoboxContent: 'GAIA BH1\n\nThis is placeholder text for Gaia BH1. More information will be added here.',
+        infoboxContent: 'GAIA BH1\n\nNearest void devourer at 1,560 lights. Invisible gravity shaping stellar fates.',
         isGreenlisted: false,
         exploreContent: 'Exploring GAIA BH1...\n\nGaia BH1 is a black hole discovered by the Gaia space observatory.'
     });
@@ -551,7 +551,7 @@ export function createAllObjects(sceneManager, spacing, planeSize, planesGroup) 
         lefthandLabelPosition: 0.0, // Bottom position (0.0 = bottom)
         lineColor: 0xffffff,
         lineOpacity: 0.5,
-        infoboxContent: 'ROOT\n\nThis is placeholder text for the Root. More information will be added here.',
+        infoboxContent: 'ROOT\n\nRoot of existence. Birth of matter, energy, consciousness from void.',
         isGreenlisted: false,
         exploreContent: 'Exploring ROOT...\n\nThe Root represents the foundation and origin of all things.'
     });
@@ -573,7 +573,7 @@ export function createAllObjects(sceneManager, spacing, planeSize, planesGroup) 
         angle: zetaReticuliAngle, // Angle pointing outward from center
         lineColor: 0xffffff,
         lineOpacity: 0.5,
-        infoboxContent: 'ZETA RETICULI\n\nThis is placeholder text for Zeta Reticuli. More information will be added here.',
+        infoboxContent: 'ZETA RETICULI\n\nTwin suns at 39 lights. Dancing binary lights in cosmic embrace.',
         isGreenlisted: false,
         exploreContent: 'Exploring ZETA RETICULI...\n\nZeta Reticuli is a binary star system in the constellation Reticulum.'
     });
@@ -603,7 +603,7 @@ export function createAllObjects(sceneManager, spacing, planeSize, planesGroup) 
         angle: m87Angle, // Angle pointing outward from center
         lineColor: 0xffffff,
         lineOpacity: 0.5,
-        infoboxContent: 'MESSIER 87\n\nThis is placeholder text for Messier 87. More information will be added here.',
+        infoboxContent: 'MESSIER 87\n\nGiant elliptical in Virgo. Home to photographed supermassive void.',
         isGreenlisted: false,
         exploreContent: 'Exploring MESSIER 87...\n\nMessier 87 is a supergiant elliptical galaxy in the constellation Virgo.'
     });
@@ -693,7 +693,7 @@ export function createAllObjects(sceneManager, spacing, planeSize, planesGroup) 
         lineType: 'leader',
         lineColor: 0xffffff,
         lineOpacity: 0.5,
-        infoboxContent: 'PLEIADES\n\nThis is placeholder text for the Pleiades. More information will be added here.',
+        infoboxContent: 'PLEIADES\n\nSeven sisters cluster. Young fire stars born from same cosmic womb.',
         isGreenlisted: false,
         exploreContent: 'Exploring PLEIADES...\n\nThe Pleiades is an open star cluster in the constellation Taurus.'
     });
@@ -719,7 +719,7 @@ export function createAllObjects(sceneManager, spacing, planeSize, planesGroup) 
         ior: 1.5, // Standard for mirrors
         metalness: 1.0, // Fully metallic for mirror
         emissiveIntensity: 0.0, // No glow
-        infoboxContent: 'MONOLITH\n\nThis is placeholder text for the Monolith. More information will be added here.',
+        infoboxContent: 'MONOLITH\n\nBlack monolith of unknown origin. Gateway beacon to higher intelligences.',
         isGreenlisted: false,
         exploreContent: 'Exploring MONOLITH...\n\nThe Monolith represents an enigmatic and mysterious structure.'
     });
@@ -760,7 +760,7 @@ export function createAllObjects(sceneManager, spacing, planeSize, planesGroup) 
         roughness: 0.0, // Perfectly smooth for mirror reflection
         ior: 1.5, // Standard for mirrors
         metalness: 1.0, // Fully metallic for mirror
-        infoboxContent: 'STATION\n\nThis is placeholder text for the Station. More information will be added here.',
+        infoboxContent: 'STATION\n\nOrbital temple orbiting unseen world. Advanced scanning of hidden realities.',
         isGreenlisted: false,
         exploreContent: 'Exploring STATION...\n\nThe Station is a mysterious orbital facility.'
     });
@@ -813,7 +813,7 @@ export function createAllObjects(sceneManager, spacing, planeSize, planesGroup) 
         ior: 1.5, // Standard for mirrors
         metalness: 1.0, // Fully metallic for mirror
         emissiveIntensity: 0.0, // No glow
-        infoboxContent: 'CROWN\n\nThis is placeholder text for the Crown. More information will be added here.',
+        infoboxContent: 'CROWN\n\nCrown of divine authority. Enlightenment, mastery, spiritual apex.',
         isGreenlisted: false,
         exploreContent: 'Exploring CROWN...\n\nThe Crown represents the pinnacle of achievement and enlightenment.'
     });
@@ -836,9 +836,8 @@ export function createAllObjects(sceneManager, spacing, planeSize, planesGroup) 
         ior: 1.5,
         metalness: 0.3, // Lower metalness so black base color shows through
         emissiveIntensity: 0.0, // No glow
-        infoboxContent: 'PLUTO\n\nThis is placeholder text for Pluto. More information will be added here.',
-        isGreenlisted: false,
-        exploreContent: 'Exploring PLUTO...\n\nPluto is a dwarf planet in the Kuiper belt.'
+        infoboxContent: 'PLUTO\n\nPluto is an engineering superplant and research facility.',
+        isGreenlisted: false
     });
 
     // Add clouds in area 4b (bottom side of top plane) - ELASTIC between planes 3 and 4
@@ -1053,7 +1052,7 @@ export function createAllObjects(sceneManager, spacing, planeSize, planesGroup) 
         lineType: 'leader',
         lineColor: 0xffffff,
         lineOpacity: 0.5,
-        infoboxContent: 'BLACK CUBE\n\nThis is placeholder text for the Black Cube. More information will be added here.',
+        infoboxContent: 'BLACK CUBE\n\nBlack cube of immense power. Final gate after Saturn rite, holding forbidden wisdom.',
         isGreenlisted: false,
         exploreContent: 'Sacrifice 9 Slaves to Moloch.'
     });
@@ -1180,7 +1179,7 @@ export function createAllObjects(sceneManager, spacing, planeSize, planesGroup) 
         lineType: 'leader', // Leader line extends to nearest screen edge
         lineColor: 0xffffff,
         lineOpacity: 0.5,
-        infoboxContent: 'SUPERNOVA\n\nThis is placeholder text for the Supernova. More information will be added here.',
+        infoboxContent: 'SUPERNOVA\n\nStellar death explosion. Energy to power civilizations for eons.',
         isGreenlisted: false,
         exploreContent: 'Exploring SUPERNOVA...\n\nA supernova is a powerful and luminous stellar explosion.'
     });
@@ -1263,7 +1262,7 @@ export function createAllObjects(sceneManager, spacing, planeSize, planesGroup) 
         angle: atlantisAngle, // Angle pointing outward from center
         lineColor: 0xffffff,
         lineOpacity: 0.5,
-        infoboxContent: 'ATLANTIS\n\nThis is placeholder text for Atlantis. More information will be added here.',
+        infoboxContent: 'ATLANTIS\n\nSunken civilization of advanced beings. Technology beyond comprehension, lost to depths.',
         isGreenlisted: false,
         exploreContent: 'Exploring ATLANTIS...\n\nAtlantis is a mythical island civilization that sank into the sea.'
     });

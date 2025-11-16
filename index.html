@@ -26,7 +26,7 @@
     <div id="travel-indicator" class="travel-indicator">TRAVELLING</div>
     
     <!-- Toggle Buttons -->
-    <button id="panel-toggle" class="panel-toggle" aria-label="Toggle control panel">VIEW</button>
+    <button id="panel-toggle" class="panel-toggle" aria-label="Toggle console panel">CONSOLE</button>
     <button id="inventory-toggle" class="panel-toggle inventory-toggle" aria-label="Toggle inventory">INVENTORY</button>
     <button id="explore-toggle" class="panel-toggle explore-toggle" aria-label="Toggle explore">EXPLORE</button>
     
@@ -72,6 +72,18 @@
         <div class="panel-content">
             <div id="explore-content" class="explore-content">
                 <!-- Content will be dynamically generated based on location -->
+            </div>
+        </div>
+    </div>
+
+    <!-- Cheat Code Modal -->
+    <div id="cheat-modal" class="cheat-modal">
+        <div class="cheat-modal-content">
+            <h3>Enter Cheat Code</h3>
+            <input type="text" id="cheat-input" class="cheat-input" placeholder="Type cheat code..." maxlength="20">
+            <div class="cheat-buttons">
+                <button id="cheat-submit" class="cheat-submit">Activate</button>
+                <button id="cheat-cancel" class="cheat-cancel">Cancel</button>
             </div>
         </div>
     </div>
