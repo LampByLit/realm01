@@ -36,7 +36,30 @@ export class TradingGame {
         this.deployedMerchants = 0; // Merchants deployed for passive income
         this.deployedArmies = 0; // Armies deployed for slave income
         this.deployedArchons = 0; // Archons deployed for money and slave income
-        
+
+        // Gaia BH1 Banking System
+        this.gaiaBH1Loan = {
+            active: false,
+            amount: 20000,
+            totalOwed: 24000,
+            turnsRemaining: 10,
+            repaid: false
+        };
+
+        this.gaiaBH1Account = {
+            balance: 0,
+            minimum: 5000,
+            active: false
+        };
+
+        this.gaiaBH1Investment = {
+            active: false,
+            amount: 30000,
+            payoutPerTurn: 4000,
+            turnsRemaining: 10,
+            totalPaid: 0
+        };
+
         // Price state per location (stores current prices)
         this.locationPrices = {};
         
@@ -659,8 +682,32 @@ export class TradingGame {
             this.randomizeActiveCommodities(location);
         });
         
+        // Process Gaia BH1 banking system
+        this.processGaiaBH1Banking();
+
         // Fluctuate prices for active commodities at all locations
         this.fluctuatePrices();
+    }
+
+    // Process Gaia BH1 banking mechanics each turn
+    processGaiaBH1Banking() {
+        // Process loan countdown
+        if (this.gaiaBH1Loan.active && !this.gaiaBH1Loan.repaid) {
+            this.gaiaBH1Loan.turnsRemaining--;
+            // Note: No automatic consequences for unpaid loans yet
+        }
+
+        // Process investment payouts
+        if (this.gaiaBH1Investment.active) {
+            this.gaiaBH1Investment.turnsRemaining--;
+            this.money += this.gaiaBH1Investment.payoutPerTurn;
+            this.gaiaBH1Investment.totalPaid += this.gaiaBH1Investment.payoutPerTurn;
+
+            // Investment complete
+            if (this.gaiaBH1Investment.turnsRemaining <= 0) {
+                this.gaiaBH1Investment.active = false;
+            }
+        }
     }
     
     // Fluctuate prices based on fluctuation rates (only for active commodities)

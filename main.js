@@ -6,6 +6,7 @@ import { createAllObjects } from './objects.js';
 import { TradingGame } from './trading-game.js';
 import { TradingUI } from './trading-ui.js';
 import { ScoreManager } from './score-manager.js';
+import { NPCManager } from './npc-manager.js';
 
 // Scene setup
 const scene = new THREE.Scene();
@@ -726,6 +727,9 @@ const sceneManager = new SceneManager(scene, camera, renderer);
 // Initialize Trading Game
 const tradingGame = new TradingGame(sceneManager);
 const tradingUI = new TradingUI();
+
+// Initialize NPC Manager
+const npcManager = new NPCManager(sceneManager, tradingGame, scene);
 
 // Make tradingGame available globally for UI updates
 window.tradingGame = tradingGame;
@@ -1650,7 +1654,7 @@ function animate() {
                 travelIndicator.classList.remove('show');
             }
             
-            // Consume fuel and advance turn
+            // Advance player turn (NPCs already moved at start of travel)
             if (tradingGame) {
                 const fuelCost = tradingGame.getFuelCost(destinationName);
                 tradingGame.consumeFuel(fuelCost);
@@ -1658,11 +1662,14 @@ function animate() {
             }
             
             currentLocation = destinationName; // Update current location
-            
+
             // Update trading game current location
             if (tradingGame) {
                 tradingGame.currentLocation = destinationName;
             }
+
+            // Check for NPC encounters at the new location
+            npcManager.checkForPlayerArrivalEncounter(destinationName);
             
             // Hide spaceship immediately
             if (travelState.spaceship) {
@@ -1696,7 +1703,10 @@ function animate() {
             }
         }
     }
-    
+
+    // Update NPC travel animations
+    npcManager.updateTravelAnimations();
+
     renderer.render(scene, camera);
 }
 
@@ -1740,6 +1750,13 @@ function isOnCurrentGreenlist(objectName, baseIsGreenlisted) {
     if (window.inventoryManager && window.inventoryManager.hasItem('ftl', 1)) {
         const ftlLocations = ['gaia bh1', 'zeta reticuli', 'messier 87'];
         if (objectName && ftlLocations.includes(objectName.toLowerCase())) {
+            return true;
+        }
+    }
+
+    // Anja is greenlisted once Jupiter name is entered
+    if (objectName && objectName.toLowerCase() === 'anja') {
+        if (localStorage.getItem('jupiterNameEntered')) {
             return true;
         }
     }
@@ -2035,7 +2052,10 @@ function startTravel(destinationName) {
         console.error('Destination object not found:', destinationName);
         return;
     }
-    
+
+    // Check if NPCs should move this turn (simultaneously with player travel)
+    npcManager.advanceTurn();
+
     // Get start position from current planet
     const startPos = new THREE.Vector3();
     if (currentLocation) {
@@ -2882,6 +2902,21 @@ function renderExploreContent() {
         if (currentLocation.toUpperCase() === 'BLACK CUBE' || currentLocation.toLowerCase() === 'black cube') {
             createBlackCubeSacrificeButton(exploreContent, currentObject);
         }
+
+        // Special handling for ANJA - add pledge button
+        if (currentLocation.toUpperCase() === 'ANJA' || currentLocation.toLowerCase() === 'anja') {
+            createAnjaPledgeButton(exploreContent, currentObject);
+        }
+
+        // Special handling for ZETA RETICULI - Greys encounter
+        if (currentLocation.toUpperCase() === 'ZETA RETICULI' || currentLocation.toLowerCase() === 'zeta reticuli') {
+            createZetaReticuliGreysEncounter(exploreContent, currentObject);
+        }
+
+        // Special handling for GAIA BH1 - Reptilian Banking
+        if (currentLocation.toUpperCase() === 'GAIA BH1' || currentLocation.toLowerCase() === 'gaia bh1') {
+            createGaiaBH1BankingSystem(exploreContent, currentObject);
+        }
     } else if (currentObject) {
         // Special handling for PLUTO (when it doesn't have exploreContent)
         if (currentLocation.toUpperCase() === 'PLUTO' || currentLocation.toLowerCase() === 'pluto') {
@@ -3332,34 +3367,34 @@ function createJupiterPledgeButton(parentElement, jupiterObject) {
             
             // Save name (session only, no persistence)
             jupiterObject.playerName = name;
-            
-            // Special case: if name is 'יהוה', give fuel and travel to anja
-            if (name === 'יהוה') {
-                // Give 2 fuel
-                if (tradingGame) {
-                    tradingGame.commodities['fuel'] = (tradingGame.commodities['fuel'] || 0) + 2;
-                }
-                
-                // Automatically travel to anja
-                setTimeout(() => {
-                    startTravel('anja');
-                }, 500);
-            } else {
-                // Normal flow: update explore content and travel to Earth
-                jupiterObject.exploreContent = 'Tune to Frequency 7 to unlock the Outer Planets.';
-                
-                // Give 2 fuel
-                if (tradingGame) {
-                    tradingGame.commodities['fuel'] = (tradingGame.commodities['fuel'] || 0) + 2;
-                }
-                
-                // Automatically travel to Earth (costs 1 fuel)
-                setTimeout(() => {
-                    if (tradingGame && tradingGame.canTravelTo('EARTH')) {
-                        startTravel('EARTH');
-                    }
-                }, 500);
+
+            // Always travel to Anja and give rewards
+            jupiterObject.exploreContent = 'Tune to Frequency 7 to unlock the Outer Planets.';
+
+            // Give 2 fuel
+            if (tradingGame) {
+                tradingGame.commodities['fuel'] = (tradingGame.commodities['fuel'] || 0) + 2;
             }
+
+            // Award Ancient achievement
+            if (window.scoreManager) {
+                window.scoreManager.addAchievement('Ancient');
+            }
+
+            // Set persistent flag for Anja greenlisting
+            localStorage.setItem('jupiterNameEntered', 'true');
+
+            // Special case: if name is 'adem', give FTL drive
+            if (name.toLowerCase() === 'adem') {
+                if (window.inventoryManager) {
+                    window.inventoryManager.addItem('ftl', 1);
+                }
+            }
+
+            // Automatically travel to Anja
+            setTimeout(() => {
+                startTravel('anja');
+            }, 500);
             
             // Update UI
             if (window.renderInventory) {
@@ -4432,6 +4467,644 @@ function createBlackCubeSacrificeButton(parentElement, blackCubeObject) {
     parentElement.appendChild(section);
 }
 
+// Helper function to create Anja pledge button
+function createAnjaPledgeButton(parentElement, anjaObject) {
+    // Initialize pledge state from localStorage (persistent across sessions)
+    const hasPledged = localStorage.getItem('anjaPledged10Gold') === 'true';
+    anjaObject.hasPledged10Gold = hasPledged;
+
+    const section = document.createElement('div');
+    section.style.marginTop = '1rem';
+    section.style.paddingTop = '1rem';
+    section.style.borderTop = '1px solid rgba(196, 213, 188, 0.2)';
+
+    // Update explore content based on state
+    if (!anjaObject.hasPledged10Gold) {
+        anjaObject.exploreContent = 'Pledge 10 Gold to Anu.';
+    } else {
+        anjaObject.exploreContent = 'Ascend 1 Baby to the Throne';
+    }
+
+    const button = document.createElement('button');
+
+    // Function to update button state
+    const updateButtonState = () => {
+        if (!anjaObject.hasPledged10Gold) {
+            // First stage: need 10 gold
+            const goldCount = tradingGame && tradingGame.commodities ? (tradingGame.commodities['gold'] || 0) : 0;
+            const hasEnoughGold = goldCount >= 10;
+            button.disabled = !hasEnoughGold;
+            button.style.backgroundColor = hasEnoughGold ? 'rgba(196, 213, 188, 0.1)' : 'rgba(196, 213, 188, 0.05)';
+            button.style.cursor = hasEnoughGold ? 'pointer' : 'not-allowed';
+            button.style.opacity = hasEnoughGold ? '1' : '0.5';
+        } else {
+            // Second stage: need 1 baby
+            const hasBaby = inventoryManager && inventoryManager.hasItem('baby', 1);
+            button.disabled = !hasBaby;
+            button.style.backgroundColor = hasBaby ? 'rgba(196, 213, 188, 0.1)' : 'rgba(196, 213, 188, 0.05)';
+            button.style.cursor = hasBaby ? 'pointer' : 'not-allowed';
+            button.style.opacity = hasBaby ? '1' : '0.5';
+        }
+    };
+
+    button.textContent = !anjaObject.hasPledged10Gold ? 'PLEDGE' : 'ASCEND';
+    button.style.width = '100%';
+    button.style.padding = '0.75rem';
+    button.style.fontFamily = 'var(--font-primary)';
+    button.style.fontWeight = '700';
+    button.style.fontSize = '0.625rem';
+    button.style.textTransform = 'uppercase';
+    button.style.letterSpacing = '0.05em';
+    button.style.color = 'var(--color--foreground)';
+    button.style.border = '1px solid rgba(196, 213, 188, 0.3)';
+    button.style.borderRadius = '4px';
+    button.style.transition = 'all 0.2s';
+
+    // Initial button state
+    updateButtonState();
+
+    // Hover effects
+    button.addEventListener('mouseenter', () => {
+        if (!button.disabled) {
+            button.style.backgroundColor = 'rgba(196, 213, 188, 0.2)';
+        }
+    });
+    button.addEventListener('mouseleave', () => {
+        updateButtonState();
+    });
+
+    // Click handler
+    button.addEventListener('click', () => {
+        if (!anjaObject.hasPledged10Gold) {
+            // First pledge: 10 gold
+            const goldCount = tradingGame && tradingGame.commodities ? (tradingGame.commodities['gold'] || 0) : 0;
+            if (goldCount < 10) {
+                updateButtonState();
+                return;
+            }
+
+            // Remove 10 gold
+            if (tradingGame && tradingGame.commodities) {
+                tradingGame.commodities['gold'] = Math.max(0, (tradingGame.commodities['gold'] || 0) - 10);
+            }
+
+            // Add 1 aura
+            if (tradingGame) {
+                tradingGame.commodities['aura'] = (tradingGame.commodities['aura'] || 0) + 1;
+            }
+
+            // Award Astral Traveller achievement
+            if (window.scoreManager) {
+                window.scoreManager.addAchievement('Astral Traveller');
+                // Update score display
+                if (window.updateScoreDisplay) {
+                    window.updateScoreDisplay();
+                }
+            }
+
+            // Mark as having pledged 10 gold (persistent)
+            localStorage.setItem('anjaPledged10Gold', 'true');
+            anjaObject.hasPledged10Gold = true;
+            anjaObject.exploreContent = 'Ascend 1 Baby to the Throne';
+
+            // Automatically travel back to Earth (consumes 1 fuel)
+            if (!travelState.isTraveling) {
+                startTravel('EARTH');
+            }
+
+            // Update button state for next stage
+            updateButtonState();
+        } else {
+            // Second stage: ascend 1 baby
+            if (!inventoryManager || !inventoryManager.hasItem('baby', 1)) {
+                updateButtonState();
+                return;
+            }
+
+            // Remove 1 baby
+            inventoryManager.removeItem('baby', 1);
+
+            // Update explore content (could add a final message here if needed)
+            // For now, just keep the same message
+        }
+
+        // Update UI
+        if (window.renderInventory) {
+            window.renderInventory();
+        }
+        if (window.updateExplorePanel) {
+            window.updateExplorePanel();
+        }
+
+        // Visual feedback
+        button.style.backgroundColor = 'rgba(196, 213, 188, 0.3)';
+        setTimeout(() => {
+            updateButtonState();
+        }, 200);
+    });
+
+    section.appendChild(button);
+    parentElement.appendChild(section);
+}
+
+// Helper function to create Zeta Reticuli Greys encounter
+function createZetaReticuliGreysEncounter(parentElement, zetaReticuliObject) {
+    const section = document.createElement('div');
+    section.style.marginTop = '1rem';
+    section.style.paddingTop = '1rem';
+    section.style.borderTop = '1px solid rgba(196, 213, 188, 0.2)';
+
+    // Check player resources and determine encounter type
+    const playerMoney = tradingGame ? tradingGame.money || 0 : 0;
+    const playerSlaves = tradingGame ? tradingGame.getCommodityQuantity('slaves') || 0 : 0;
+
+    let encounterMessage = '';
+    let actionTaken = false;
+
+    if (playerMoney >= 500) {
+        // $500 fine
+        encounterMessage = 'You are not welcome on Zeta Reticuli. The Greys have charged a $500 fine for trespassing. Please evacuate this system immediately.';
+        if (tradingGame) {
+            tradingGame.money = Math.max(0, tradingGame.money - 500);
+        }
+        actionTaken = true;
+    } else if (playerSlaves > 0) {
+        // Slave confiscation
+        encounterMessage = 'You are not welcome on Zeta Reticuli. The Greys have confiscated your Slaves for trespassing. Please evacuate this system immediately.';
+        if (tradingGame) {
+            tradingGame.commodities['slaves'] = 0; // Remove all slaves
+        }
+        actionTaken = true;
+    } else {
+        // Deportation
+        encounterMessage = 'You are not welcome on Zeta Reticuli. The Greys have deported you to Earth.';
+        // Give 1 fuel and travel to Earth
+        if (tradingGame) {
+            tradingGame.commodities['fuel'] = (tradingGame.commodities['fuel'] || 0) + 1;
+        }
+        // Travel to Earth (will consume 1 fuel)
+        setTimeout(() => {
+            if (!travelState.isTraveling) {
+                startTravel('EARTH');
+            }
+        }, 2000); // Delay to let player read the message
+        actionTaken = true;
+    }
+
+    // Display the encounter message
+    const messageDiv = document.createElement('div');
+    messageDiv.style.fontFamily = 'var(--font-primary)';
+    messageDiv.style.fontSize = '0.75rem';
+    messageDiv.style.lineHeight = '1.4';
+    messageDiv.style.color = 'var(--color--foreground)';
+    messageDiv.style.textAlign = 'center';
+    messageDiv.style.padding = '1rem';
+    messageDiv.style.backgroundColor = 'rgba(255, 0, 0, 0.1)'; // Red tint for hostile encounter
+    messageDiv.style.border = '1px solid rgba(255, 0, 0, 0.3)';
+    messageDiv.style.borderRadius = '4px';
+    messageDiv.style.marginBottom = '1rem';
+    messageDiv.textContent = encounterMessage;
+
+    section.appendChild(messageDiv);
+
+    // Update explore content to reflect the encounter
+    zetaReticuliObject.exploreContent = encounterMessage;
+
+    // Update UI after actions
+    if (actionTaken) {
+        if (window.renderInventory) {
+            window.renderInventory();
+        }
+        if (window.updateExplorePanel) {
+            window.updateExplorePanel();
+        }
+    }
+
+    parentElement.appendChild(section);
+}
+
+// Helper function to create Gaia BH1 Reptilian Banking System
+function createGaiaBH1BankingSystem(parentElement, gaiaBH1Object) {
+    const section = document.createElement('div');
+    section.style.marginTop = '1rem';
+    section.style.paddingTop = '1rem';
+    section.style.borderTop = '1px solid rgba(196, 213, 188, 0.2)';
+
+    // Main menu container
+    const mainMenu = document.createElement('div');
+    mainMenu.id = 'gaia-bh1-main-menu';
+
+    // Title
+    const title = document.createElement('div');
+    title.style.fontFamily = 'var(--font-primary)';
+    title.style.fontSize = '0.875rem';
+    title.style.fontWeight = '700';
+    title.style.color = 'var(--color--foreground)';
+    title.style.textAlign = 'center';
+    title.style.marginBottom = '1rem';
+    title.textContent = 'REPTILIAN BANKING CONSORTIUM';
+    mainMenu.appendChild(title);
+
+    // Create main buttons
+    const buttonsContainer = document.createElement('div');
+    buttonsContainer.style.display = 'flex';
+    buttonsContainer.style.flexDirection = 'column';
+    buttonsContainer.style.gap = '0.5rem';
+
+    // Borrow button
+    const borrowButton = createBankingButton('BORROW', () => {
+        showBorrowSubmenu(mainMenu, gaiaBH1Object);
+    });
+    buttonsContainer.appendChild(borrowButton);
+
+    // Deposit button
+    const depositButton = createBankingButton('DEPOSIT', () => {
+        showDepositSubmenu(mainMenu, gaiaBH1Object);
+    });
+    buttonsContainer.appendChild(depositButton);
+
+    // Invest button
+    const investButton = createBankingButton('INVEST', () => {
+        showInvestSubmenu(mainMenu, gaiaBH1Object);
+    });
+    buttonsContainer.appendChild(investButton);
+
+    mainMenu.appendChild(buttonsContainer);
+    section.appendChild(mainMenu);
+
+    parentElement.appendChild(section);
+}
+
+// Helper function to create banking buttons
+function createBankingButton(text, onClick) {
+    const button = document.createElement('button');
+    button.textContent = text;
+    button.style.width = '100%';
+    button.style.padding = '0.75rem';
+    button.style.fontFamily = 'var(--font-primary)';
+    button.style.fontWeight = '700';
+    button.style.fontSize = '0.625rem';
+    button.style.textTransform = 'uppercase';
+    button.style.letterSpacing = '0.05em';
+    button.style.color = 'var(--color--foreground)';
+    button.style.backgroundColor = 'rgba(196, 213, 188, 0.1)';
+    button.style.border = '1px solid rgba(196, 213, 188, 0.3)';
+    button.style.borderRadius = '4px';
+    button.style.cursor = 'pointer';
+    button.style.transition = 'all 0.2s';
+
+    button.addEventListener('mouseenter', () => {
+        button.style.backgroundColor = 'rgba(196, 213, 188, 0.2)';
+    });
+    button.addEventListener('mouseleave', () => {
+        button.style.backgroundColor = 'rgba(196, 213, 188, 0.1)';
+    });
+
+    button.addEventListener('click', onClick);
+
+    return button;
+}
+
+// Helper function to create back button
+function createBackButton(onClick) {
+    const backButton = document.createElement('button');
+    backButton.textContent = '← BACK';
+    backButton.style.width = '100%';
+    backButton.style.padding = '0.5rem';
+    backButton.style.marginBottom = '1rem';
+    backButton.style.fontFamily = 'var(--font-primary)';
+    backButton.style.fontWeight = '700';
+    backButton.style.fontSize = '0.5rem';
+    backButton.style.textTransform = 'uppercase';
+    backButton.style.letterSpacing = '0.05em';
+    backButton.style.color = 'var(--color--foreground)';
+    backButton.style.backgroundColor = 'rgba(196, 213, 188, 0.05)';
+    backButton.style.border = '1px solid rgba(196, 213, 188, 0.2)';
+    backButton.style.borderRadius = '4px';
+    backButton.style.cursor = 'pointer';
+    backButton.style.transition = 'all 0.2s';
+
+    backButton.addEventListener('mouseenter', () => {
+        backButton.style.backgroundColor = 'rgba(196, 213, 188, 0.1)';
+    });
+    backButton.addEventListener('mouseleave', () => {
+        backButton.style.backgroundColor = 'rgba(196, 213, 188, 0.05)';
+    });
+
+    backButton.addEventListener('click', onClick);
+
+    return backButton;
+}
+
+// Borrow submenu
+function showBorrowSubmenu(mainMenu, gaiaBH1Object) {
+    const submenu = document.createElement('div');
+    submenu.id = 'gaia-bh1-borrow-submenu';
+
+    // Back button
+    const backButton = createBackButton(() => {
+        mainMenu.style.display = 'block';
+        submenu.remove();
+    });
+    submenu.appendChild(backButton);
+
+    // Content
+    const content = document.createElement('div');
+    content.style.fontFamily = 'var(--font-primary)';
+    content.style.fontSize = '0.75rem';
+    content.style.lineHeight = '1.4';
+    content.style.color = 'var(--color--foreground)';
+    content.style.textAlign = 'center';
+    content.style.marginBottom = '1rem';
+
+    if (tradingGame && tradingGame.gaiaBH1Loan.active) {
+        // Show repayment option
+        content.innerHTML = `
+            <div style="margin-bottom: 1rem;">Loan Status: Active</div>
+            <div style="margin-bottom: 1rem;">Amount Owed: $${tradingGame.gaiaBH1Loan.totalOwed}</div>
+            <div style="margin-bottom: 1rem;">Turns Remaining: ${tradingGame.gaiaBH1Loan.turnsRemaining}</div>
+        `;
+
+        const repayButton = createBankingButton('REPAY $24K', () => {
+            if (tradingGame && tradingGame.money >= tradingGame.gaiaBH1Loan.totalOwed) {
+                tradingGame.money -= tradingGame.gaiaBH1Loan.totalOwed;
+                tradingGame.gaiaBH1Loan.repaid = true;
+                tradingGame.gaiaBH1Loan.active = false;
+
+                // Award achievement
+                if (window.scoreManager) {
+                    window.scoreManager.addAchievement('Loan Shark');
+                }
+
+                // Update UI
+                if (window.renderInventory) {
+                    window.renderInventory();
+                }
+                if (window.updateExplorePanel) {
+                    window.updateExplorePanel();
+                }
+
+                mainMenu.style.display = 'block';
+                submenu.remove();
+            }
+        });
+
+        // Disable repay button if insufficient funds
+        if (tradingGame.money < tradingGame.gaiaBH1Loan.totalOwed) {
+            repayButton.disabled = true;
+            repayButton.style.opacity = '0.5';
+            repayButton.style.cursor = 'not-allowed';
+        }
+
+        submenu.appendChild(content);
+        submenu.appendChild(repayButton);
+    } else {
+        // Show loan offer
+        content.innerHTML = `
+            <div style="margin-bottom: 1rem;">The Reptilians offer a $20,000 loan at 20% interest over 10 turns.</div>
+            <div style="font-weight: 700; color: #ff6b6b;">Total repayment: $24,000</div>
+        `;
+
+        const confirmButton = createBankingButton('CONFIRM LOAN', () => {
+            if (tradingGame) {
+                tradingGame.money += 20000;
+                tradingGame.gaiaBH1Loan.active = true;
+                tradingGame.gaiaBH1Loan.turnsRemaining = 10;
+
+                // Update UI
+                if (window.renderInventory) {
+                    window.renderInventory();
+                }
+                if (window.updateExplorePanel) {
+                    window.updateExplorePanel();
+                }
+
+                mainMenu.style.display = 'block';
+                submenu.remove();
+            }
+        });
+
+        submenu.appendChild(content);
+        submenu.appendChild(confirmButton);
+    }
+
+    // Hide main menu and show submenu
+    mainMenu.style.display = 'none';
+    mainMenu.parentElement.appendChild(submenu);
+}
+
+// Deposit submenu
+function showDepositSubmenu(mainMenu, gaiaBH1Object) {
+    const submenu = document.createElement('div');
+    submenu.id = 'gaia-bh1-deposit-submenu';
+
+    // Back button
+    const backButton = createBackButton(() => {
+        mainMenu.style.display = 'block';
+        submenu.remove();
+    });
+    submenu.appendChild(backButton);
+
+    // Content
+    const content = document.createElement('div');
+    content.style.fontFamily = 'var(--font-primary)';
+    content.style.fontSize = '0.75rem';
+    content.style.lineHeight = '1.4';
+    content.style.color = 'var(--color--foreground)';
+    content.style.textAlign = 'center';
+    content.style.marginBottom = '1rem';
+
+    const accountBalance = tradingGame ? tradingGame.gaiaBH1Account.balance : 0;
+    content.innerHTML = `
+        <div style="margin-bottom: 1rem;">Account Balance: $${accountBalance}</div>
+        <div style="margin-bottom: 1rem;">The Reptilians offer a $5,000 holding account. This account must hold minimum $5,000.</div>
+    `;
+
+    submenu.appendChild(content);
+
+    // Number input
+    const inputContainer = document.createElement('div');
+    inputContainer.style.marginBottom = '1rem';
+
+    const amountInput = document.createElement('input');
+    amountInput.type = 'number';
+    amountInput.min = '0';
+    amountInput.placeholder = 'Enter amount';
+    amountInput.style.width = '100%';
+    amountInput.style.padding = '0.5rem';
+    amountInput.style.fontFamily = 'var(--font-primary)';
+    amountInput.style.fontSize = '0.75rem';
+    amountInput.style.color = 'var(--color--foreground)';
+    amountInput.style.backgroundColor = 'rgba(196, 213, 188, 0.1)';
+    amountInput.style.border = '1px solid rgba(196, 213, 188, 0.3)';
+    amountInput.style.borderRadius = '4px';
+    amountInput.style.textAlign = 'center';
+
+    inputContainer.appendChild(amountInput);
+    submenu.appendChild(inputContainer);
+
+    // Buttons container
+    const buttonsContainer = document.createElement('div');
+    buttonsContainer.style.display = 'flex';
+    buttonsContainer.style.flexDirection = 'column';
+    buttonsContainer.style.gap = '0.5rem';
+
+    // Deposit button
+    const depositButton = createBankingButton('DEPOSIT', () => {
+        const amount = parseInt(amountInput.value) || 0;
+        if (tradingGame && amount > 0 && tradingGame.money >= amount) {
+            const newBalance = accountBalance + amount;
+            if (newBalance >= 5000) {
+                tradingGame.money -= amount;
+                tradingGame.gaiaBH1Account.balance = newBalance;
+                tradingGame.gaiaBH1Account.active = true;
+
+                // Update UI
+                if (window.renderInventory) {
+                    window.renderInventory();
+                }
+                if (window.updateExplorePanel) {
+                    window.updateExplorePanel();
+                }
+
+                mainMenu.style.display = 'block';
+                submenu.remove();
+            }
+        }
+    });
+
+    // Withdraw button
+    const withdrawButton = createBankingButton('WITHDRAW', () => {
+        const amount = parseInt(amountInput.value) || 0;
+        if (tradingGame && amount > 0 && accountBalance >= amount) {
+            const newBalance = accountBalance - amount;
+            if (!tradingGame.gaiaBH1Account.active || newBalance >= 5000) {
+                tradingGame.money += amount;
+                tradingGame.gaiaBH1Account.balance = newBalance;
+
+                // Deactivate account if below minimum
+                if (newBalance < 5000) {
+                    tradingGame.gaiaBH1Account.active = false;
+                }
+
+                // Update UI
+                if (window.renderInventory) {
+                    window.renderInventory();
+                }
+                if (window.updateExplorePanel) {
+                    window.updateExplorePanel();
+                }
+
+                mainMenu.style.display = 'block';
+                submenu.remove();
+            }
+        }
+    });
+
+    // Close account button (only if account is active)
+    if (tradingGame && tradingGame.gaiaBH1Account.active) {
+        const closeButton = createBankingButton('CLOSE ACCOUNT', () => {
+            if (tradingGame) {
+                tradingGame.money += accountBalance;
+                tradingGame.gaiaBH1Account.balance = 0;
+                tradingGame.gaiaBH1Account.active = false;
+
+                // Update UI
+                if (window.renderInventory) {
+                    window.renderInventory();
+                }
+                if (window.updateExplorePanel) {
+                    window.updateExplorePanel();
+                }
+
+                mainMenu.style.display = 'block';
+                submenu.remove();
+            }
+        });
+        buttonsContainer.appendChild(closeButton);
+    }
+
+    buttonsContainer.appendChild(depositButton);
+    buttonsContainer.appendChild(withdrawButton);
+    submenu.appendChild(buttonsContainer);
+
+    // Hide main menu and show submenu
+    mainMenu.style.display = 'none';
+    mainMenu.parentElement.appendChild(submenu);
+}
+
+// Invest submenu
+function showInvestSubmenu(mainMenu, gaiaBH1Object) {
+    const submenu = document.createElement('div');
+    submenu.id = 'gaia-bh1-invest-submenu';
+
+    // Back button
+    const backButton = createBackButton(() => {
+        mainMenu.style.display = 'block';
+        submenu.remove();
+    });
+    submenu.appendChild(backButton);
+
+    // Content
+    const content = document.createElement('div');
+    content.style.fontFamily = 'var(--font-primary)';
+    content.style.fontSize = '0.75rem';
+    content.style.lineHeight = '1.4';
+    content.style.color = 'var(--color--foreground)';
+    content.style.textAlign = 'center';
+    content.style.marginBottom = '1rem';
+
+    if (tradingGame && tradingGame.gaiaBH1Account.balance > 0) {
+        // Show investment offer
+        if (tradingGame.gaiaBH1Investment.active) {
+            content.innerHTML = `
+                <div style="margin-bottom: 1rem;">Investment Status: Active</div>
+                <div style="margin-bottom: 1rem;">Turns Remaining: ${tradingGame.gaiaBH1Investment.turnsRemaining}</div>
+                <div style="margin-bottom: 1rem;">Total Paid: $${tradingGame.gaiaBH1Investment.totalPaid}</div>
+            `;
+        } else {
+            content.innerHTML = `
+                <div style="margin-bottom: 1rem;">The Reptilians offer an investment package of $30,000.</div>
+                <div style="margin-bottom: 1rem;">This package pays out $4,000 every turn for 10 turns.</div>
+                <div style="font-weight: 700; color: #4ecdc4;">Total return: $40,000</div>
+            `;
+
+            const investButton = createBankingButton('INVEST', () => {
+                if (tradingGame && tradingGame.gaiaBH1Account.balance >= 30000) {
+                    tradingGame.gaiaBH1Account.balance -= 30000;
+                    tradingGame.gaiaBH1Investment.active = true;
+                    tradingGame.gaiaBH1Investment.turnsRemaining = 10;
+                    tradingGame.gaiaBH1Investment.totalPaid = 0;
+
+                    // Update UI
+                    if (window.renderInventory) {
+                        window.renderInventory();
+                    }
+                    if (window.updateExplorePanel) {
+                        window.updateExplorePanel();
+                    }
+
+                    mainMenu.style.display = 'block';
+                    submenu.remove();
+                }
+            });
+
+            submenu.appendChild(content);
+            submenu.appendChild(investButton);
+        }
+    } else {
+        // No account balance
+        content.innerHTML = `
+            <div>The Reptilians offer an investment package for account holders.</div>
+        `;
+        submenu.appendChild(content);
+    }
+
+    // Hide main menu and show submenu
+    mainMenu.style.display = 'none';
+    mainMenu.parentElement.appendChild(submenu);
+}
+
 // Helper function to create rainbow confetti animation
 function createConfetti() {
     const confettiContainer = document.createElement('div');
@@ -5177,11 +5850,14 @@ let sessionSkips = 0;
 function skipTurn() {
     if (travelState.isTraveling || skipTurnCooldown) return;
 
+    // Check if NPCs should move this turn (simultaneously with turn advancement)
+    npcManager.advanceTurn();
+
     // Advance turn (same logic as when traveling)
     if (tradingGame) {
         tradingGame.advanceTurn(currentLocation);
 
-        // Update explore panel to show new commodities/prices
+    // Update explore panel to show new commodities/prices
         if (window.updateExplorePanel) {
             window.updateExplorePanel();
         }
