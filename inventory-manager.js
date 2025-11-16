@@ -38,6 +38,11 @@ export class InventoryManager {
                 plural: 'Women',
                 description: 'A fully formed adult female human.'
             },
+            'water': {
+                name: 'Water',
+                plural: 'Water',
+                description: 'The essence of water and fluidity. The flow of life and change.'
+            },
             'ftl': {
                 name: 'FTL Drive',
                 plural: 'FTL Drives',

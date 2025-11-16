@@ -343,7 +343,9 @@ export function createAllObjects(sceneManager, spacing, planeSize, planesGroup) 
         lineOpacity: 0.5,
         infoboxContent: 'JUPITER\n\nJupiter currently is host to the Anunnaki, who will unlock Sacred Knowledge in exchange for gold.',
         isGreenlisted: false,
-        exploreContent: 'Pledge 5 Gold to the Anunnaki'
+        exploreContent: 'Pledge 5 Gold to the Anunnaki',
+        // Track if Station achievement has updated Jupiter's content
+        stationContentActive: false
     });
 
     // Add Mercury - small glass sphere in random area from 0b to 2a

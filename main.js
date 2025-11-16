@@ -1764,9 +1764,20 @@ function isOnCurrentGreenlist(objectName, baseIsGreenlisted) {
     }
     
     // Black Cube is permanently greenlisted once Saturn Worshipper achievement is earned
+    // BUT removed if Archangel achievement is earned (mutual exclusion)
     if (objectName && objectName.toLowerCase() === 'black cube') {
+        if (localStorage.getItem('blackCubeRemoved') === 'true') {
+            return false; // Permanently removed due to Archangel path
+        }
         if (window.scoreManager && window.scoreManager.hasAchievement('Saturn Worshipper')) {
             return true;
+        }
+    }
+
+    // Anja is removed if Pedophile achievement is earned (mutual exclusion)
+    if (objectName && objectName.toLowerCase() === 'anja') {
+        if (localStorage.getItem('anjaRemoved') === 'true') {
+            return false; // Permanently removed due to Pedophile path
         }
     }
     
@@ -1782,7 +1793,34 @@ function isOnCurrentGreenlist(objectName, baseIsGreenlisted) {
             return true;
         }
     }
-    
+
+    // At frequency 8, unlock outer planets plus galaxies: milky way, andromeda, large magellanic cloud
+    if (frequencyValue === 8) {
+        const outerPlanets = ['earth', 'moon', 'mars', 'venus', 'mercury', 'saturn', 'jupiter', 'neptune', 'uranus', 'pluto'];
+        const freq8Galaxies = ['milky way', 'andromeda', 'large magellanic cloud'];
+        if (objectName && (outerPlanets.includes(objectName.toLowerCase()) || freq8Galaxies.includes(objectName.toLowerCase()))) {
+            return true;
+        }
+    }
+
+    // At frequency 9, unlock ONLY station (exclusive)
+    if (frequencyValue === 9) {
+        if (objectName && objectName.toLowerCase() === 'station') {
+            return true;
+        }
+        // Frequency 9 is exclusive - nothing else is greenlisted
+        return false;
+    }
+
+    // At frequency 10, unlock ONLY monolith (exclusive)
+    if (frequencyValue === 10) {
+        if (objectName && objectName.toLowerCase() === 'monolith') {
+            return true;
+        }
+        // Frequency 10 is exclusive - nothing else is greenlisted
+        return false;
+    }
+
     // FTL Drive unlocks advanced cosmic locations
     if (window.inventoryManager && window.inventoryManager.hasItem('ftl', 1)) {
         const ftlLocations = ['gaia bh1', 'zeta reticuli', 'messier 87'];
@@ -2512,8 +2550,12 @@ window.addEventListener('keydown', (event) => {
     } else if (event.key >= '0' && event.key <= '9') {
         // Number keys: Set frequency stepper to exact value
         if (steppers && steppers[4]) { // Frequency is stepper[4]
-            const value = parseInt(event.key);
-            if (value >= 0 && value <= 10) { // Ensure within stepper range
+            let value = parseInt(event.key);
+            // Special case: 0 key sets frequency to 10
+            if (value === 0) {
+                value = 10;
+            }
+            if (value >= 1 && value <= 10) { // Ensure within stepper range
                 steppers[4].setValue(value);
             }
         }
@@ -3143,7 +3185,12 @@ function renderExploreContent() {
         if (currentLocation.toUpperCase() === 'SATURN' || currentLocation.toLowerCase() === 'saturn') {
             createPledgeSoulButton(exploreContent, currentObject);
         }
-        
+
+        // Special handling for STATION - sacred knowledge revelation
+        if (currentLocation.toUpperCase() === 'STATION' || currentLocation.toLowerCase() === 'station') {
+            createStationButton(exploreContent, currentObject);
+        }
+
         // Special handling for JUPITER - add pledge gold button or name entry
         if (currentLocation.toUpperCase() === 'JUPITER' || currentLocation.toLowerCase() === 'jupiter') {
             createJupiterPledgeButton(exploreContent, currentObject);
@@ -3526,17 +3573,33 @@ function createPledgeSoulButton(parentElement, saturnObject) {
 
 // Helper function to create Jupiter pledge gold button and name entry
 function createJupiterPledgeButton(parentElement, jupiterObject) {
+    // Check for Station achievement - if earned, show different content
+    const hasStationAchievement = window.scoreManager && window.scoreManager.hasAchievement('Station');
+    if (hasStationAchievement) {
+        // Clear existing content and show the updated message
+        parentElement.innerHTML = '';
+        const messageDiv = document.createElement('div');
+        messageDiv.style.padding = '1rem';
+        messageDiv.style.fontFamily = 'var(--font-primary)';
+        messageDiv.style.fontSize = '0.875rem';
+        messageDiv.style.color = 'var(--color--foreground)';
+        messageDiv.style.textAlign = 'center';
+        messageDiv.textContent = 'Take the 4 Elements to Monolith and Consecrate the Singularity.';
+        parentElement.appendChild(messageDiv);
+        return;
+    }
+
     // Initialize pledge state if not exists
     if (!jupiterObject.hasPledgedGold) {
         jupiterObject.hasPledgedGold = false;
     }
     // No persistence - player name resets on page reload
-    
+
     const section = document.createElement('div');
     section.style.marginTop = '1rem';
     section.style.paddingTop = '1rem';
     section.style.borderTop = '1px solid rgba(196, 213, 188, 0.2)';
-    
+
     // If name is already entered, set explore content and return
     // The message will be displayed by renderExploreContent
     if (jupiterObject.playerName) {
@@ -5108,7 +5171,27 @@ function createBlackCubeSacrificeButton(parentElement, blackCubeObject) {
             
             // Remove 1 baby
             inventoryManager.removeItem('baby', 1);
-            
+
+            // Add 1 water (element creation)
+            inventoryManager.addItem('water', 1);
+
+            // Award Pedophile achievement
+            if (window.scoreManager) {
+                window.scoreManager.addAchievement('Pedophile');
+                // Update score display
+                if (window.updateScoreDisplay) {
+                    window.updateScoreDisplay();
+                }
+            }
+
+            // Remove Anja from greenlist permanently (mutual exclusion)
+            const anjaObject = sceneManager.allObjects.find(obj => obj.name === 'Anja');
+            if (anjaObject) {
+                anjaObject.isGreenlisted = false;
+                // Save to localStorage to persist across sessions
+                localStorage.setItem('anjaRemoved', 'true');
+            }
+
             // Update explore content (could add a final message here if needed)
             // For now, just keep the same message
         }
@@ -5248,6 +5331,26 @@ function createAnjaPledgeButton(parentElement, anjaObject) {
 
             // Remove 1 baby
             inventoryManager.removeItem('baby', 1);
+
+            // Add 1 water (element creation)
+            inventoryManager.addItem('water', 1);
+
+            // Award Archangel achievement
+            if (window.scoreManager) {
+                window.scoreManager.addAchievement('Archangel');
+                // Update score display
+                if (window.updateScoreDisplay) {
+                    window.updateScoreDisplay();
+                }
+            }
+
+            // Remove Black Cube from greenlist permanently (mutual exclusion)
+            const blackCubeObject = sceneManager.allObjects.find(obj => obj.name === 'Black Cube');
+            if (blackCubeObject) {
+                blackCubeObject.isGreenlisted = false;
+                // Save to localStorage to persist across sessions
+                localStorage.setItem('blackCubeRemoved', 'true');
+            }
 
             // Update explore content (could add a final message here if needed)
             // For now, just keep the same message
@@ -6728,4 +6831,105 @@ panelContent.appendChild(scoreSection);
 
 // Initialize display
 updateScoreDisplay();
+
+// Helper function to create Station button (sacred knowledge revelation)
+function createStationButton(parentElement, stationObject) {
+    // Clear existing content
+    parentElement.innerHTML = '';
+
+    // Sacred text revelation
+    const sacredText = document.createElement('div');
+    sacredText.style.marginBottom = '2rem';
+    sacredText.style.padding = '1rem';
+    sacredText.style.backgroundColor = 'rgba(196, 213, 188, 0.05)';
+    sacredText.style.borderRadius = '4px';
+    sacredText.style.border = '1px solid rgba(196, 213, 188, 0.1)';
+    sacredText.style.fontFamily = 'var(--font-primary)';
+    sacredText.style.fontSize = '0.875rem';
+    sacredText.style.color = 'var(--color--foreground)';
+    sacredText.style.lineHeight = '1.5';
+    sacredText.innerHTML = `
+        <div style="text-align: center; margin-bottom: 1rem; font-weight: 600; opacity: 0.8;">
+            SACRED KNOWLEDGE REVEALED
+        </div>
+        <div style="text-align: center;">
+            You must go three times the Speed of Light to harvest a single moment of Entropy.
+        </div>
+    `;
+    parentElement.appendChild(sacredText);
+
+    // Station button
+    const button = document.createElement('button');
+    button.textContent = 'STATION';
+    button.style.width = '100%';
+    button.style.padding = '1rem';
+    button.style.fontFamily = 'var(--font-primary)';
+    button.style.fontWeight = '700';
+    button.style.fontSize = '0.75rem';
+    button.style.textTransform = 'uppercase';
+    button.style.letterSpacing = '0.1em';
+    button.style.color = 'var(--color--foreground)';
+    button.style.backgroundColor = 'rgba(196, 213, 188, 0.1)';
+    button.style.border = '1px solid rgba(196, 213, 188, 0.3)';
+    button.style.borderRadius = '4px';
+    button.style.cursor = 'pointer';
+    button.style.transition = 'all 0.2s';
+
+    // Check if Station achievement already earned
+    const hasStationAchievement = window.scoreManager && window.scoreManager.hasAchievement('Station');
+    if (hasStationAchievement) {
+        button.disabled = true;
+        button.style.backgroundColor = 'rgba(196, 213, 188, 0.05)';
+        button.style.cursor = 'not-allowed';
+        button.style.opacity = '0.5';
+        button.textContent = 'STATION ACHIEVED';
+    }
+
+    // Hover effects (only if not disabled)
+    button.addEventListener('mouseenter', () => {
+        if (!button.disabled) {
+            button.style.backgroundColor = 'rgba(196, 213, 188, 0.25)';
+        }
+    });
+
+    button.addEventListener('mouseleave', () => {
+        if (!button.disabled) {
+            button.style.backgroundColor = 'rgba(196, 213, 188, 0.1)';
+        }
+    });
+
+    // Click handler
+    button.addEventListener('click', () => {
+        if (button.disabled) return;
+
+        // Award Station achievement
+        if (window.scoreManager) {
+            window.scoreManager.addAchievement('Station');
+            // Update score display
+            if (window.updateScoreDisplay) {
+                window.updateScoreDisplay();
+            }
+        }
+
+        // Automatically transport to Jupiter
+        if (!travelState.isTraveling) {
+            startTravel('JUPITER');
+        }
+
+        // Disable button after use
+        button.disabled = true;
+        button.style.backgroundColor = 'rgba(196, 213, 188, 0.05)';
+        button.style.cursor = 'not-allowed';
+        button.style.opacity = '0.5';
+        button.textContent = 'STATION ACHIEVED';
+
+        // Update Jupiter's explore content
+        const jupiterObject = sceneManager.allObjects.find(obj => obj.name === 'jupiter');
+        if (jupiterObject) {
+            jupiterObject.exploreContent = 'Take the 4 Elements to Monolith and Consecrate the Singularity.';
+        }
+    });
+
+    parentElement.appendChild(button);
+}
 
