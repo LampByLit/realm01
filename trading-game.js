@@ -694,7 +694,17 @@ export class TradingGame {
         // Process loan countdown
         if (this.gaiaBH1Loan.active && !this.gaiaBH1Loan.repaid) {
             this.gaiaBH1Loan.turnsRemaining--;
-            // Note: No automatic consequences for unpaid loans yet
+
+            // Trigger Reptilian agro when loan is not repaid on time
+            if (this.gaiaBH1Loan.turnsRemaining <= 0) {
+                if (window.npcManager) {
+                    const reptiliansNpc = window.npcManager.npcs.find(npc => npc.name === 'Reptilians');
+                    if (reptiliansNpc && !reptiliansNpc.agro) {
+                        window.npcManager.activateAgroMode(reptiliansNpc);
+                        console.log('🐲 Reptilian agro triggered: Loan default');
+                    }
+                }
+            }
         }
 
         // Process investment payouts
@@ -710,45 +720,31 @@ export class TradingGame {
         }
     }
     
-    // Fluctuate prices based on fluctuation rates (only for active commodities)
+    // Generate totally random prices within range (no fluctuation logic)
     fluctuatePrices() {
         Object.keys(this.locationActiveCommodities).forEach(locationKey => {
             // Get active commodities for this location
             const activeCommodities = this.locationActiveCommodities[locationKey] || [];
-            
+
             // Try to find config with case-insensitive matching
-            const config = LOCATION_CONFIG[locationKey] || 
-                          LOCATION_CONFIG[locationKey.toUpperCase()] || 
+            const config = LOCATION_CONFIG[locationKey] ||
+                          LOCATION_CONFIG[locationKey.toUpperCase()] ||
                           LOCATION_CONFIG[locationKey.toLowerCase()];
             if (!config) return;
-            
-            // Only fluctuate prices for active commodities
+
+            // Generate completely new random prices for active commodities
             activeCommodities.forEach(commodity => {
-                const currentPrice = this.locationPrices[locationKey]?.[commodity];
-                if (currentPrice === undefined) return;
-                
-                const fluctuationRate = FLUCTUATION_RATES[commodity];
-                if (!fluctuationRate) return;
-                
-                // Random fluctuation within range
-                const fluctuation = (Math.random() * (fluctuationRate.max - fluctuationRate.min)) + fluctuationRate.min;
-                const direction = Math.random() < 0.5 ? -1 : 1; // Random up or down
-                
-                const change = currentPrice * fluctuation * direction;
-                let newPrice = Math.floor(currentPrice + change);
-                
-                // Ensure price doesn't go below minimum or above maximum
-                const baseRange = PRICE_RANGES[commodity];
-                const multiplier = getPriceMultiplier(locationKey, commodity);
-                const minPrice = Math.floor(baseRange.min * multiplier * 0.5); // Allow 50% below base
-                const maxPrice = Math.floor(baseRange.max * multiplier * 1.5); // Allow 50% above base
-                
-                newPrice = Math.max(minPrice, Math.min(maxPrice, newPrice));
-                
-                if (!this.locationPrices[locationKey]) {
-                    this.locationPrices[locationKey] = {};
+                // Check if this commodity has a special price range at this location
+                if (config && config.specialPriceRanges && config.specialPriceRanges[commodity]) {
+                    // Use special price range directly (no multiplier)
+                    const range = config.specialPriceRanges[commodity];
+                    this.locationPrices[locationKey][commodity] = Math.floor(Math.random() * (range.max - range.min + 1)) + range.min;
+                } else {
+                    // Use standard price generation with multiplier
+                    const basePrice = getRandomPrice(commodity, locationKey);
+                    const multiplier = getPriceMultiplier(locationKey, commodity);
+                    this.locationPrices[locationKey][commodity] = Math.floor(basePrice * multiplier);
                 }
-                this.locationPrices[locationKey][commodity] = newPrice;
             });
         });
     }

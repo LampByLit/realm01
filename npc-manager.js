@@ -24,6 +24,7 @@ export class NPCManager {
         this.initializeVenusians();
         this.initializeReptilians();
         this.initializePleiadians();
+        this.initializeGreys();
     }
 
     // Check if any NPCs are currently traveling (have active animations)
@@ -31,19 +32,57 @@ export class NPCManager {
         return this.npcs.some(npc => npc.isTraveling);
     }
 
-    // Advance all NPC turns simultaneously (ignoring individual timers)
+    // Advance all NPC turns simultaneously (respecting individual timers)
     advanceAllTurnsSimultaneously() {
-        console.log('🚀 Advancing ALL NPC turns simultaneously!');
+        console.log('🚀 Advancing ALL NPC turns simultaneously (respecting timers)!');
         this.npcs.forEach(npc => {
-            // Check for Pleiadian location-based encounter
-            if (npc.name === 'Pleiadians' &&
-                npc.currentLocation.toLowerCase() === this.tradingGame.currentLocation.toLowerCase()) {
-                console.log(`👽 Pleiadians: Co-located with player at ${npc.currentLocation}, initiating encounter then travel`);
-                this.triggerEncounter(npc);
+            // Handle Greys hostility cycle
+            if (npc.name === 'Greys') {
+                // Advance hostility cycle every turn (0-9)
+                npc.hostilityCycle = (npc.hostilityCycle + 1) % 10;
+
+                // Every 10th turn (when cycle reaches 0), become hostile for 2 turns
+                if (npc.hostilityCycle === 0 && !npc.isHostile) {
+                    console.log(`👽 Greys becoming hostile! Seeking player for 2 turns...`);
+                    npc.isHostile = true;
+                    npc.hostileTurnsRemaining = 2;
+                    this.activateAgroMode(npc);
+                }
+
+                // Count down hostile turns
+                if (npc.isHostile) {
+                    npc.hostileTurnsRemaining--;
+                    if (npc.hostileTurnsRemaining <= 0) {
+                        console.log(`👽 Greys hostility period ended - returning to normal`);
+                        npc.isHostile = false;
+                        npc.agro = false; // Deactivate agro mode
+                    }
+                }
             }
-            console.log(`🚀 ${npc.name} simultaneous movement triggered!`);
-            this.moveNPC(npc);
-            npc.movementTimer = 0; // Reset timer
+
+            // Agro NPCs do NOT move during regular turn advancement - they wait for player skips
+
+            // Normal movement logic for non-agro NPCs
+            npc.movementTimer++;
+            let moveThreshold = 2; // Default for Martians and Venusians
+            if (npc.name === 'Reptilians') {
+                moveThreshold = 3;
+            } else if (npc.name === 'Pleiadians') {
+                moveThreshold = 1; // Pleiadians move every turn
+            }
+            console.log(`⏰ ${npc.name} simultaneous turn timer: ${npc.movementTimer}/${moveThreshold} (at ${npc.currentLocation})`);
+
+            if (npc.movementTimer >= moveThreshold) {
+                // Check for Pleiadian location-based encounter
+                if (npc.name === 'Pleiadians' &&
+                    npc.currentLocation.toLowerCase() === this.tradingGame.currentLocation.toLowerCase()) {
+                    console.log(`👽 Pleiadians: Co-located with player at ${npc.currentLocation}, initiating encounter then travel`);
+                    this.triggerEncounter(npc);
+                }
+                console.log(`🚀 ${npc.name} simultaneous movement triggered!`);
+                this.moveNPC(npc);
+                npc.movementTimer = 0; // Reset timer only for NPCs that actually moved
+            }
         });
     }
 
@@ -67,13 +106,15 @@ export class NPCManager {
         const martian = {
             name: 'Martians',
             currentLocation: 'mars',
-            movementTimer: 0, // Moves every 2 turns
+            movementTimer: 0, // Moves every 2 turns (unless agro)
             spaceship: null,
             isTraveling: false,
             travelStartTime: 0,
             travelDuration: 20000, // 20 seconds (same as player travel)
             travelStartPos: null,
-            travelEndPos: null
+            travelEndPos: null,
+            agro: false, // Agro state
+            disableTraditionalEncounters: false // Disable traditional encounters when agro
         };
         this.npcs.push(martian);
     }
@@ -83,13 +124,15 @@ export class NPCManager {
         const venusian = {
             name: 'Venusians',
             currentLocation: 'venus',
-            movementTimer: 0, // Moves every 2 turns
+            movementTimer: 0, // Moves every 2 turns (unless agro)
             spaceship: null,
             isTraveling: false,
             travelStartTime: 0,
             travelDuration: 20000, // 20 seconds (same as player travel)
             travelStartPos: null,
-            travelEndPos: null
+            travelEndPos: null,
+            agro: false, // Agro state
+            disableTraditionalEncounters: false // Disable traditional encounters when agro
         };
         this.npcs.push(venusian);
     }
@@ -99,13 +142,15 @@ export class NPCManager {
         const reptilian = {
             name: 'Reptilians',
             currentLocation: 'Gaia BH1',
-            movementTimer: 0, // Moves every 3 turns
+            movementTimer: 0, // Moves every 3 turns (unless agro)
             spaceship: null,
             isTraveling: false,
             travelStartTime: 0,
             travelDuration: 20000, // 20 seconds (same as player travel)
             travelStartPos: null,
-            travelEndPos: null
+            travelEndPos: null,
+            agro: false, // Agro state
+            disableTraditionalEncounters: false // Disable traditional encounters when agro
         };
         this.npcs.push(reptilian);
     }
@@ -121,9 +166,32 @@ export class NPCManager {
             travelStartTime: 0,
             travelDuration: 20000, // 20 seconds (same as player travel)
             travelStartPos: null,
-            travelEndPos: null
+            travelEndPos: null,
+            agro: false, // Agro state
+            disableTraditionalEncounters: false // Disable traditional encounters when agro
         };
         this.npcs.push(pleiadian);
+    }
+
+    initializeGreys() {
+        // Create Greys NPC starting at Zeta Reticuli
+        const greys = {
+            name: 'Greys',
+            currentLocation: 'zeta reticuli',
+            movementTimer: 0, // Moves every 2 turns (unless agro)
+            spaceship: null,
+            isTraveling: false,
+            travelStartTime: 0,
+            travelDuration: 20000, // 20 seconds (same as player travel)
+            travelStartPos: null,
+            travelEndPos: null,
+            agro: false, // Agro state
+            disableTraditionalEncounters: false, // Disable traditional encounters when agro
+            hostilityCycle: 0, // Tracks 0-9 cycle for hostility
+            isHostile: false, // Currently in hostile phase
+            hostileTurnsRemaining: 0 // Countdown for hostile turns
+        };
+        this.npcs.push(greys);
     }
 
     createRedSpaceship() {
@@ -306,8 +374,89 @@ export class NPCManager {
         return spaceship;
     }
 
+    createGreySpaceship() {
+        // Create a sleek gray spaceship with angular wing structures
+        const spaceship = new THREE.Group();
+
+        // Main body - elongated dark gray cylinder
+        const body = new THREE.Mesh(
+            new THREE.CylinderGeometry(0.05, 0.08, 0.25, 8),
+            new THREE.MeshStandardMaterial({
+                color: 0x333333,
+                emissive: 0x222222,
+                emissiveIntensity: 0.6
+            })
+        );
+        spaceship.add(body);
+
+        // Angular wing structures - dark gray triangular prisms
+        const wingGeometry = new THREE.ConeGeometry(0.08, 0.15, 3);
+        const wingMaterial = new THREE.MeshStandardMaterial({
+            color: 0x444444,
+            emissive: 0x333333,
+            emissiveIntensity: 0.5
+        });
+
+        // Left wing - angular design
+        const leftWing = new THREE.Mesh(wingGeometry, wingMaterial);
+        leftWing.position.set(-0.1, 0, 0.05);
+        leftWing.rotation.set(0, 0, Math.PI / 2);
+        leftWing.scale.set(1.2, 0.8, 1);
+        spaceship.add(leftWing);
+
+        // Right wing - angular design
+        const rightWing = new THREE.Mesh(wingGeometry, wingMaterial);
+        rightWing.position.set(0.1, 0, 0.05);
+        rightWing.rotation.set(0, 0, -Math.PI / 2);
+        rightWing.scale.set(1.2, 0.8, 1);
+        spaceship.add(rightWing);
+
+        // Rear stabilizers - smaller angular structures
+        const stabilizerGeometry = new THREE.ConeGeometry(0.04, 0.08, 3);
+        const stabilizerMaterial = new THREE.MeshStandardMaterial({
+            color: 0x555555,
+            emissive: 0x444444,
+            emissiveIntensity: 0.4
+        });
+
+        // Left stabilizer
+        const leftStabilizer = new THREE.Mesh(stabilizerGeometry, stabilizerMaterial);
+        leftStabilizer.position.set(-0.06, 0, -0.08);
+        leftStabilizer.rotation.set(Math.PI / 2, 0, Math.PI / 2);
+        spaceship.add(leftStabilizer);
+
+        // Right stabilizer
+        const rightStabilizer = new THREE.Mesh(stabilizerGeometry, stabilizerMaterial);
+        rightStabilizer.position.set(0.06, 0, -0.08);
+        rightStabilizer.rotation.set(Math.PI / 2, 0, -Math.PI / 2);
+        spaceship.add(rightStabilizer);
+
+        // Forward antenna/sensor array
+        const antennaGeometry = new THREE.CylinderGeometry(0.01, 0.01, 0.08, 6);
+        const antennaMaterial = new THREE.MeshStandardMaterial({
+            color: 0x666666,
+            emissive: 0x555555,
+            emissiveIntensity: 0.7
+        });
+
+        const antenna = new THREE.Mesh(antennaGeometry, antennaMaterial);
+        antenna.position.set(0, 0.08, 0.08);
+        spaceship.add(antenna);
+
+        spaceship.visible = false;
+        return spaceship;
+    }
+
     advanceTurn() {
         this.npcs.forEach(npc => {
+            // Agro NPCs move every turn regardless of normal timer
+            if (npc.agro) {
+                console.log(`🚨 ${npc.name} agro movement triggered! (seeking player)`);
+                this.moveAgroNPC(npc);
+                return; // Skip normal movement logic for agro NPCs
+            }
+
+            // Normal movement logic for non-agro NPCs
             npc.movementTimer++;
             let moveThreshold = 2; // Default for Martians and Venusians
             if (npc.name === 'Reptilians') {
@@ -320,7 +469,7 @@ export class NPCManager {
             if (npc.movementTimer >= moveThreshold) {
                 if (npc.name === 'Pleiadians' &&
                     npc.currentLocation.toLowerCase() === this.tradingGame.currentLocation.toLowerCase()) {
-                    // Pleiadians and player are co-located - encounter first
+                    // Pleiadians and player are co-located - encounter first (only if not agro)
                     console.log(`👽 Pleiadians: Co-located with player at ${npc.currentLocation}, initiating encounter then travel`);
                     this.triggerEncounter(npc);
                 }
@@ -347,6 +496,32 @@ export class NPCManager {
         this.startNPCTravel(npc, newLocation);
     }
 
+    moveAgroNPC(npc) {
+        // Get the player's last skipped location (stored when player skips)
+        const lastSkippedLocation = localStorage.getItem('player_last_skipped_location');
+
+        if (!lastSkippedLocation) {
+            console.log(`🚨 ${npc.name} agro: no last skipped location found, staying put`);
+            return;
+        }
+
+        // If already at the player's last skipped location, trigger defend mode immediately
+        if (npc.currentLocation.toLowerCase() === lastSkippedLocation.toLowerCase()) {
+            console.log(`🚨 ${npc.name} already at player's last skipped location (${lastSkippedLocation}) - triggering defend mode immediately`);
+            // Trigger defend mode immediately if not already in combat
+            if (window.combatManager && !window.combatManager.inCombat) {
+                window.combatManager.enterDefendMode(npc);
+            }
+            return;
+        }
+
+        // Agro NPCs move directly to the player's last skipped location (ignore greenlist)
+        console.log(`🚨 ${npc.name} agro: moving to player's last skipped location ${lastSkippedLocation} from ${npc.currentLocation}`);
+
+        // Move directly to player's last skipped location
+        this.startNPCTravel(npc, lastSkippedLocation);
+    }
+
     startNPCTravel(npc, destinationName) {
         const oldLocation = npc.currentLocation;
         npc.currentLocation = destinationName;
@@ -362,6 +537,8 @@ export class NPCManager {
                 npc.spaceship = this.createGreenSpaceship();
             } else if (npc.name === 'Pleiadians') {
                 npc.spaceship = this.createBlueSpaceship();
+            } else if (npc.name === 'Greys') {
+                npc.spaceship = this.createGreySpaceship();
             }
             this.scene.add(npc.spaceship);
         }
@@ -420,6 +597,16 @@ export class NPCManager {
 
         if (npc.currentLocation.toLowerCase() === this.tradingGame.currentLocation.toLowerCase()) {
             console.log(`✅ ${npc.name} encounter triggered! NPC arrived at player's location.`);
+
+            // Agro NPCs trigger defend mode immediately instead of traditional encounters
+            if (npc.agro) {
+                console.log(`🚨 ${npc.name} agro NPC arrived - triggering defend mode immediately`);
+                if (window.combatManager && !window.combatManager.inCombat) {
+                    window.combatManager.enterDefendMode(npc);
+                }
+                return; // Don't trigger traditional encounter for agro NPCs
+            }
+
             this.triggerEncounter(npc);
         } else {
             console.log(`❌ No encounter: Locations don't match`);
@@ -433,6 +620,16 @@ export class NPCManager {
         this.npcs.forEach(npc => {
             if (npc.currentLocation.toLowerCase() === locationName.toLowerCase()) {
                 console.log(`✅ Player arrival encounter triggered! ${npc.name} already at location.`);
+
+                // Agro NPCs trigger defend mode immediately when player arrives
+                if (npc.agro) {
+                    console.log(`🚨 ${npc.name} agro: player arrived at agro NPC location - triggering defend mode immediately`);
+                    if (window.combatManager && !window.combatManager.inCombat) {
+                        window.combatManager.enterDefendMode(npc);
+                    }
+                    return; // Don't trigger traditional encounter for agro NPCs
+                }
+
                 // NPC is already at this location - trigger encounter
                 this.triggerEncounter(npc);
             }
@@ -440,6 +637,12 @@ export class NPCManager {
     }
 
     triggerEncounter(npc) {
+        // Skip traditional encounters for agro NPCs - they use defend mode instead
+        if (npc.agro || npc.disableTraditionalEncounters) {
+            console.log(`🚨 ${npc.name} agro encounter blocked - agro NPCs use defend mode`);
+            return;
+        }
+
         // Prevent multiple encounters with the same NPC within 10 seconds
         const npcId = npc.name;
         const now = Date.now();
@@ -565,6 +768,16 @@ export class NPCManager {
                     scenarioNames.push('Ascension Message');
                 }
             }
+        } else if (npc.name === 'Greys') {
+            // Greys scenarios - rude warnings about Zeta Reticuli
+            availableScenarios.push(() => this.greysWarningScenario(npc));
+            scenarioNames.push('Warning');
+
+            availableScenarios.push(() => this.greysRudeScenario(npc));
+            scenarioNames.push('Rude Dismissal');
+
+            availableScenarios.push(() => this.greysThreatScenario(npc));
+            scenarioNames.push('Threat');
         }
 
         // Randomly select from available scenarios
@@ -988,6 +1201,54 @@ export class NPCManager {
         );
     }
 
+    greysWarningScenario(npc) {
+        this.showNPCPopup(
+            'Stay away from Zeta Reticuli. It belongs to us.',
+            'Understood',
+            null,
+            () => {
+                // Just acknowledge the warning
+            },
+            null,
+            npc
+        );
+    }
+
+    greysRudeScenario(npc) {
+        const messages = [
+            'What do you want, primitive? Go bother someone else.',
+            'You are beneath our concern. Leave us.',
+            'Your presence here is an annoyance. Depart.',
+            'We have no time for inferior species like yours.'
+        ];
+
+        const randomMessage = messages[Math.floor(Math.random() * messages.length)];
+
+        this.showNPCPopup(
+            randomMessage,
+            'OK',
+            null,
+            () => {
+                // Just close the popup
+            },
+            null,
+            npc
+        );
+    }
+
+    greysThreatScenario(npc) {
+        this.showNPCPopup(
+            'You\'ve been warned. Zeta Reticuli is off-limits to outsiders. Defy us at your peril.',
+            'Understood',
+            null,
+            () => {
+                // Just acknowledge the threat
+            },
+            null,
+            npc
+        );
+    }
+
     createBankingButton(text, onClick) {
         const button = document.createElement('button');
         button.textContent = text;
@@ -1232,6 +1493,15 @@ export class NPCManager {
                     // Deactivate account if below minimum
                     if (newBalance < 5000) {
                         this.tradingGame.gaiaBH1Account.active = false;
+
+                        // Trigger Reptilian agro when account closes while investment is active
+                        if (this.tradingGame.gaiaBH1Investment.active) {
+                            const reptiliansNpc = this.npcs.find(npc => npc.name === 'Reptilians');
+                            if (reptiliansNpc && !reptiliansNpc.agro) {
+                                this.activateAgroMode(reptiliansNpc);
+                                console.log('🐲 Reptilian agro triggered: Deposit account closed during active investment');
+                            }
+                        }
                     }
 
                     // Update UI
@@ -1330,6 +1600,8 @@ export class NPCManager {
             popup.className = 'npc-popup reptilian-popup';
         } else if (npc && npc.name === 'Pleiadians') {
             popup.className = 'npc-popup pleiadian-popup';
+        } else if (npc && npc.name === 'Greys') {
+            popup.className = 'npc-popup greys-popup';
         } else {
             popup.className = 'npc-popup';
         }
@@ -1597,5 +1869,37 @@ export class NPCManager {
                 this.activeTypewriterSprites.splice(index, 1);
             }
         });
+    }
+
+    // Move all agro NPCs when player skips a turn
+    moveAllAgroNPCsOnPlayerSkip() {
+        console.log('🚨 Moving ALL agro NPCs after player skip!');
+        this.npcs.forEach(npc => {
+            if (npc.agro) {
+                console.log(`🚨 ${npc.name} agro movement triggered by player skip`);
+                this.moveAgroNPC(npc);
+            }
+        });
+    }
+
+    // Check if any agro NPCs are at the player's location (called by combat manager)
+    getAgroNPCsAtPlayerLocation(playerLocation) {
+        return this.npcs.filter(npc =>
+            npc.agro &&
+            npc.currentLocation.toLowerCase() === playerLocation.toLowerCase() &&
+            !npc.isTraveling // Exclude NPCs that are still traveling (haven't arrived yet)
+        );
+    }
+
+    // Get agro NPCs that are currently traveling to a specific location
+    getAgroNPCsTravelingToLocation(targetLocation) {
+        const travelingAgro = this.npcs.filter(npc =>
+            npc.agro &&
+            npc.isTraveling &&
+            npc.travelDestination &&
+            npc.travelDestination.toLowerCase() === targetLocation.toLowerCase()
+        );
+        console.log(`🚨 Agro NPCs traveling to ${targetLocation}: ${travelingAgro.map(npc => npc.name).join(', ')}`);
+        return travelingAgro;
     }
 }

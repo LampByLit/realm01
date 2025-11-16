@@ -28,6 +28,16 @@ export class InventoryManager {
                 plural: 'Babies',
                 description: 'A small human child, innocent and pure.'
             },
+            'man': {
+                name: 'Man',
+                plural: 'Men',
+                description: 'A fully formed adult male human.'
+            },
+            'woman': {
+                name: 'Woman',
+                plural: 'Women',
+                description: 'A fully formed adult female human.'
+            },
             'ftl': {
                 name: 'FTL Drive',
                 plural: 'FTL Drives',

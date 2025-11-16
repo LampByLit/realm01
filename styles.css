@@ -62,8 +62,11 @@ body {
     pointer-events: none;
 }
 
-.panel-toggle:hover {
+.panel-toggle:hover,
+.panel-toggle:focus {
     background: rgba(196, 213, 188, 0.1);
+    outline: 2px solid rgba(196, 213, 188, 0.5);
+    outline-offset: 2px;
 }
 
 /* Control Panel */
@@ -335,6 +338,431 @@ body {
 .travel-button:disabled {
     opacity: 0.5;
     cursor: not-allowed;
+}
+
+/* Combat Panel */
+.combat-panel {
+    z-index: 1003; /* Higher than other panels to prevent interference */
+}
+
+.combat-title {
+    font-family: var(--font-primary);
+    font-weight: 700;
+    font-size: 0.75rem;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    color: var(--color--foreground);
+    margin: 0;
+}
+
+.combat-content {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+    padding: 1rem;
+}
+
+.combat-section-title {
+    font-family: var(--font-primary);
+    font-weight: 700;
+    font-size: 0.75rem;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    color: var(--color--foreground);
+    text-align: center;
+    margin-bottom: 0.5rem;
+}
+
+.combat-no-targets {
+    font-family: var(--font-primary);
+    font-weight: 400;
+    font-size: 0.75rem;
+    color: var(--color--foreground);
+    opacity: 0.7;
+    text-align: center;
+    padding: 2rem;
+}
+
+.combat-npc-button {
+    padding: 0.75rem;
+    border: 1px solid var(--color--foreground);
+    background: transparent;
+    color: var(--color--foreground);
+    font-family: var(--font-primary);
+    font-weight: 700;
+    font-size: 0.625rem;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    margin-bottom: 0.5rem;
+}
+
+.combat-npc-button:hover {
+    background: rgba(196, 213, 188, 0.1);
+}
+
+.combat-back-button {
+    align-self: flex-start;
+    padding: 0.5rem 1rem;
+    border: 1px solid var(--color--foreground);
+    background: transparent;
+    color: var(--color--foreground);
+    font-family: var(--font-primary);
+    font-weight: 700;
+    font-size: 0.5rem;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    margin-bottom: 1rem;
+}
+
+.combat-back-button:hover {
+    background: rgba(196, 213, 188, 0.1);
+}
+
+.combat-npc-title {
+    font-family: var(--font-primary);
+    font-weight: 700;
+    font-size: 0.75rem;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    color: var(--color--foreground);
+    text-align: center;
+    margin-bottom: 1rem;
+}
+
+.combat-power-display {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+    margin-bottom: 1.5rem;
+}
+
+.combat-power-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 0.5rem;
+    border: 1px solid var(--color--foreground);
+    background: rgba(10, 10, 10, 0.5);
+}
+
+.combat-power-label {
+    font-family: var(--font-primary);
+    font-weight: 700;
+    font-size: 0.625rem;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    color: var(--color--foreground);
+}
+
+.combat-power-value {
+    font-family: var(--font-primary);
+    font-weight: 700;
+    font-size: 0.75rem;
+    color: var(--color--foreground);
+}
+
+.combat-power-range {
+    font-family: var(--font-primary);
+    font-weight: 700;
+    font-size: 0.75rem;
+    color: var(--color--foreground);
+    opacity: 0.8;
+}
+
+.combat-power-value.revealed {
+    color: #ff6b6b; /* Red for revealed enemy power */
+}
+
+.combat-actions {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+}
+
+.combat-action-button {
+    padding: 0.75rem;
+    border: 1px solid var(--color--foreground);
+    background: transparent;
+    color: var(--color--foreground);
+    font-family: var(--font-primary);
+    font-weight: 700;
+    font-size: 0.625rem;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    cursor: pointer;
+    transition: all 0.3s ease;
+}
+
+.combat-action-button:hover:not(.disabled) {
+    background: rgba(196, 213, 188, 0.1);
+}
+
+.combat-action-button.disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+.steal-button {
+    border-color: #4ecdc4; /* Teal for steal */
+}
+
+.steal-button:hover:not(.disabled) {
+    background: rgba(78, 205, 196, 0.1);
+}
+
+.attack-button {
+    border-color: #ff6b6b; /* Red for attack */
+}
+
+.attack-button:hover:not(.disabled) {
+    background: rgba(255, 107, 107, 0.1);
+}
+
+.defend-actions .attack-button {
+    border-color: #ff4444; /* Brighter red for defend mode */
+    animation: pulse 1s infinite;
+}
+
+@keyframes pulse {
+    0% { opacity: 1; }
+    50% { opacity: 0.7; }
+    100% { opacity: 1; }
+}
+
+.combat-defend-title {
+    font-family: var(--font-primary);
+    font-weight: 700;
+    font-size: 0.75rem;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    color: #ff6b6b;
+    text-align: center;
+    margin-bottom: 1rem;
+    animation: pulse 2s infinite;
+}
+
+.combat-result {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 1rem;
+    padding: 2rem;
+    text-align: center;
+}
+
+.combat-result.success {
+    border: 2px solid #4ecdc4;
+}
+
+.combat-result.failure {
+    border: 2px solid #ff6b6b;
+}
+
+.combat-result-title {
+    font-family: var(--font-primary);
+    font-weight: 700;
+    font-size: 1rem;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    margin-bottom: 0.5rem;
+}
+
+.combat-result-message {
+    font-family: var(--font-primary);
+    font-weight: 400;
+    font-size: 0.75rem;
+    line-height: 1.4;
+    color: var(--color--foreground);
+    opacity: 0.9;
+    margin-bottom: 1rem;
+}
+
+.combat-continue-button {
+    padding: 0.75rem 2rem;
+    border: 1px solid var(--color--foreground);
+    background: transparent;
+    color: var(--color--foreground);
+    font-family: var(--font-primary);
+    font-weight: 700;
+    font-size: 0.625rem;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    cursor: pointer;
+    transition: all 0.3s ease;
+}
+
+.combat-continue-button:hover {
+    background: rgba(196, 213, 188, 0.1);
+}
+
+/* Defend Mode Popup */
+.defend-popup {
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    z-index: 1004; /* Above combat panel */
+    background: rgba(10, 10, 10, 0.95);
+    border: 2px solid #ff6b6b;
+    padding: 2rem;
+    display: none;
+    animation: defend-popup-appear 0.3s ease-out;
+}
+
+.defend-popup.open {
+    display: block;
+}
+
+@keyframes defend-popup-appear {
+    0% {
+        opacity: 0;
+        transform: translate(-50%, -50%) scale(0.9);
+    }
+    100% {
+        opacity: 1;
+        transform: translate(-50%, -50%) scale(1);
+    }
+}
+
+.defend-popup-content {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 1rem;
+    text-align: center;
+}
+
+.defend-popup-title {
+    font-family: var(--font-primary);
+    font-weight: 700;
+    font-size: 1.5rem;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    color: #ff6b6b;
+    animation: pulse 1s infinite;
+}
+
+.defend-popup-text {
+    font-family: var(--font-primary);
+    font-weight: 400;
+    font-size: 0.875rem;
+    color: var(--color--foreground);
+    opacity: 0.9;
+}
+
+.defend-countdown {
+    font-family: var(--font-primary);
+    font-weight: 700;
+    font-size: 3rem;
+    color: #ff6b6b;
+    animation: countdown-pulse 1s infinite;
+}
+
+@keyframes countdown-pulse {
+    0%, 100% { transform: scale(1); }
+    50% { transform: scale(1.1); }
+}
+
+/* Reincarnation Overlay */
+.reincarnation-overlay {
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%) scale(0.8);
+    z-index: 10000;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    opacity: 0;
+    pointer-events: none;
+    transition: all 0.6s cubic-bezier(0.34, 1.56, 0.64, 1);
+    background: transparent;
+}
+
+.reincarnation-overlay.active {
+    opacity: 1;
+    transform: translate(-50%, -50%) scale(1);
+    pointer-events: auto;
+}
+
+.reincarnation-content {
+    text-align: center;
+    color: var(--color--foreground);
+    background: rgba(0, 0, 0, 0.9);
+    border: 3px solid #ff0000;
+    border-radius: 8px;
+    padding: 3rem 2rem;
+    box-shadow: 0 0 50px rgba(255, 0, 0, 0.3);
+    backdrop-filter: blur(10px);
+}
+
+.reincarnation-title {
+    font-family: var(--font-primary);
+    font-weight: 700;
+    font-size: 3.5rem;
+    text-transform: uppercase;
+    letter-spacing: 0.15em;
+    color: #ff0000;
+    margin-bottom: 0.5rem;
+    text-shadow: 0 0 20px rgba(255, 0, 0, 0.8);
+    animation: reincarnation-pulse 2s infinite;
+}
+
+.reincarnation-subtitle {
+    font-family: var(--font-primary);
+    font-weight: 400;
+    font-size: 1.25rem;
+    color: #ff4444;
+    margin-bottom: 2rem;
+    opacity: 0.9;
+    font-style: italic;
+}
+
+.reincarnation-countdown {
+    font-family: var(--font-primary);
+    font-weight: 700;
+    font-size: 7rem;
+    color: #ff0000;
+    margin: 1rem 0;
+    text-shadow: 0 0 30px rgba(255, 0, 0, 0.8);
+    animation: reincarnation-countdown-pulse 1s infinite;
+    line-height: 1;
+}
+
+.reincarnation-message {
+    font-family: var(--font-primary);
+    font-weight: 500;
+    font-size: 1.1rem;
+    color: #ffffff;
+    opacity: 0.9;
+    margin-top: 1.5rem;
+    font-weight: 600;
+}
+
+@keyframes reincarnation-pulse {
+    0%, 100% {
+        opacity: 1;
+        transform: scale(1);
+    }
+    50% {
+        opacity: 0.7;
+        transform: scale(1.05);
+    }
+}
+
+@keyframes reincarnation-countdown-pulse {
+    0%, 100% {
+        transform: scale(1);
+        color: #ff0000;
+    }
+    50% {
+        transform: scale(1.1);
+        color: #ff4444;
+    }
 }
 
 /* Travel Indicator (bottom right) */
@@ -1509,6 +1937,29 @@ body {
     color: #0088ff;
     text-shadow: 0 0 10px rgba(0, 136, 255, 0.9);
     border-bottom: 1px solid rgba(0, 136, 255, 0.3);
+}
+
+/* Greys popup styling - DARK GRAY/BLACK THEME */
+.greys-popup .npc-popup-content {
+    background: linear-gradient(145deg, #0a0a0a 0%, #1a1a1a 25%, #141414 50%, #1a1a1a 75%, #0a0a0a 100%);
+    border: 3px solid #333333;
+    box-shadow:
+        0 8px 32px rgba(51, 51, 51, 0.4),
+        0 0 0 1px rgba(51, 51, 51, 0.1),
+        inset 0 1px 0 rgba(255, 255, 255, 0.1);
+}
+
+.greys-popup .npc-popup-content::before {
+    background: linear-gradient(135deg,
+        rgba(51, 51, 51, 0.1) 0%,
+        rgba(51, 51, 51, 0.05) 50%,
+        rgba(51, 51, 51, 0.1) 100%);
+}
+
+.greys-popup .npc-speaker-label {
+    color: #666666;
+    text-shadow: 0 0 10px rgba(102, 102, 102, 0.9);
+    border-bottom: 1px solid rgba(102, 102, 102, 0.3);
 }
 
 .npc-speaker-label::after {

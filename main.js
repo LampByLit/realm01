@@ -11,6 +11,7 @@ import { TradingGame } from './trading-game.js';
 import { TradingUI } from './trading-ui.js';
 import { ScoreManager } from './score-manager.js';
 import { NPCManager } from './npc-manager.js';
+import { CombatManager } from './combat.js';
 
 // Scene setup
 const scene = new THREE.Scene();
@@ -735,8 +736,12 @@ const tradingUI = new TradingUI();
 // Initialize NPC Manager
 const npcManager = new NPCManager(sceneManager, tradingGame, scene);
 
-// Make tradingGame available globally for UI updates
+// Initialize Combat Manager
+const combatManager = new CombatManager(sceneManager, npcManager, tradingGame, scene);
+
+// Make managers available globally for UI updates
 window.tradingGame = tradingGame;
+window.combatManager = combatManager;
 
 // Travel system state
 let currentLocation = 'EARTH'; // Name of current location object (default to EARTH)
@@ -1658,19 +1663,36 @@ function animate() {
                 travelIndicator.classList.remove('show');
             }
             
-            // Advance player turn
+            // Advance player turn (this is when the turn actually advances for everyone)
             if (tradingGame) {
-                const fuelCost = tradingGame.getFuelCost(destinationName);
-                tradingGame.consumeFuel(fuelCost);
-                tradingGame.advanceTurn(destinationName);
+                if (!travelState.isGetaway) {
+                    const fuelCost = tradingGame.getFuelCost(destinationName);
+                    tradingGame.consumeFuel(fuelCost);
+                    tradingGame.advanceTurn(destinationName);
+
+                    // Advance combat manager turn (regenerate NPC powers)
+                    if (window.combatManager) {
+                        window.combatManager.advanceTurn();
+                    }
+                } else {
+                    // Getaway travel - consume fuel but skip turn advancement
+                    console.log('🏃 Getaway travel - consuming fuel but skipping turn advancement!');
+                    const fuelCost = tradingGame.getFuelCost(destinationName);
+                    tradingGame.consumeFuel(fuelCost);
+                    // Location already updated at travel start for getaway
+                }
             }
 
-            // NPC turns are now advanced at travel START when all are settled, not at completion
+            // Update explore panel to show new commodities/prices after turn advancement
+            // (skip for getaway travels since no turn advancement occurred)
+            if (window.updateExplorePanel && !travelState.isGetaway) {
+                window.updateExplorePanel();
+            }
 
             currentLocation = destinationName; // Update current location
 
-            // Update trading game current location
-            if (tradingGame) {
+            // Update trading game current location (skip for getaway - already updated)
+            if (tradingGame && !travelState.isGetaway) {
                 tradingGame.currentLocation = destinationName;
             }
 
@@ -1713,6 +1735,14 @@ function animate() {
     // Update NPC travel animations
     npcManager.updateTravelAnimations();
 
+    // Update combat system
+    if (window.combatManager) {
+        window.combatManager.update();
+
+        // Check for defend mode triggers (agro NPCs at player location)
+        window.combatManager.checkForDefendModeTriggers();
+    }
+
     renderer.render(scene, camera);
 }
 
@@ -1720,6 +1750,7 @@ animate();
 
 // Initialize steppers array early (will be populated later when pillsteppers are created)
 let steppers = [];
+window.steppers = steppers;
 
 // Helper function to check if an object is on the current greenlist
 // (considers frequency for Mercury - only greenlisted at frequency 6)
@@ -1774,6 +1805,15 @@ function isOnCurrentGreenlist(objectName, baseIsGreenlisted) {
         if (pleiadesGreenlisted === 'true') {
             console.log('🟢 Pleiades is greenlisted!');
             return true;
+        }
+    }
+
+    // Check for planets removed from greenlist due to agro mode
+    if (objectName) {
+        const removedFromGreenlist = localStorage.getItem(`${objectName}_removed_from_greenlist`) === 'true';
+        if (removedFromGreenlist) {
+            console.log(`🚫 ${objectName} permanently removed from greenlist due to agro mode`);
+            return false;
         }
     }
 
@@ -2062,13 +2102,44 @@ function startTravel(destinationName) {
         return;
     }
 
-    // Check if any NPCs are currently traveling - if not, advance all NPC turns simultaneously
-    if (npcManager && !npcManager.areAnyNPCsTraveling()) {
-        console.log('🌌 All NPCs settled - initiating simultaneous movement!');
-        npcManager.advanceAllTurnsSimultaneously();
-    } else {
-        console.log('⏳ NPCs still traveling - using staggered turn system');
+    // Check for getaway: if agro NPCs are traveling to current location, player escapes
+    let isGetaway = false;
+    if (npcManager) {
+        // Debug: show agro status of all NPCs
+        const agroStatus = npcManager.npcs.map(npc => `${npc.name}: agro=${npc.agro}, traveling=${npc.isTraveling}, dest=${npc.travelDestination}, loc=${npc.currentLocation}`).join(' | ');
+        console.log(`🚨 NPC agro status: ${agroStatus}`);
+
+        const agroTravelingToCurrent = npcManager.getAgroNPCsTravelingToLocation(currentLocation);
+        if (agroTravelingToCurrent.length > 0) {
+            console.log(`🏃 GETAWAY! Player escaped ${agroTravelingToCurrent.length} agro NPC(s) by traveling away!`);
+            isGetaway = true;
+
+            // Award Getaway achievement
+            if (window.scoreManager && !window.scoreManager.hasAchievement('Getaway')) {
+                const isNewAchievement = window.scoreManager.addAchievement('Getaway');
+                if (isNewAchievement && window.updateScoreDisplay) {
+                    window.updateScoreDisplay();
+                }
+            }
+
+            // Grant free turn (skip turn advancement but still consume fuel)
+            console.log('🎁 Free turn granted due to successful getaway!');
+        }
     }
+
+    // Store getaway status in travel state
+    travelState.isGetaway = isGetaway;
+
+    // For getaway travels, update location immediately to prevent agro attacks at old location
+    if (isGetaway) {
+        currentLocation = destinationName;
+        if (tradingGame) {
+            tradingGame.currentLocation = destinationName;
+        }
+        console.log(`🏃 Getaway: Location updated immediately to ${destinationName}`);
+    }
+
+    // NPC turns are already advanced from skipTurn() - don't advance them again here
     
     // Find destination object
     const destinationObj = sceneManager.allObjects.find(obj => obj.name === destinationName);
@@ -2288,8 +2359,16 @@ function onMouseClick(event) {
 window.addEventListener('click', onMouseClick);
 
 // Handle Escape key to close all menus and infoboxes
+// Panel cycling state for Tab key
+let currentPanelIndex = 0; // 0: console, 1: inventory, 2: explore
+
 window.addEventListener('keydown', (event) => {
     if (event.key === 'Escape') {
+        // Don't interfere with combat mode - let combat system handle escape
+        if (window.combatManager && window.combatManager.inCombat) {
+            return;
+        }
+
         // Close all panels
         controlPanel.classList.remove('open');
         inventoryPanel.classList.remove('open');
@@ -2313,6 +2392,176 @@ window.addEventListener('keydown', (event) => {
     } else if (event.key === 'u' || event.key === 'U') {
         // Show cheat code modal
         showCheatModal();
+    } else if (event.key === 'z' || event.key === 'Z') {
+        // Z key: Close info box, then open console panel
+        // Close any open info box
+        const infoBox = document.getElementById('object-info-box');
+        if (infoBox && infoBox.classList.contains('show')) {
+            infoBox.classList.remove('show');
+        }
+
+        // Exit combat mode if active
+        if (window.combatManager && window.combatManager.inCombat && window.combatManager.combatMode === 'voluntary') {
+            window.combatManager.exitVoluntaryCombat();
+        }
+
+        // Close all panels
+        controlPanel.classList.remove('open');
+        inventoryPanel.classList.remove('open');
+        explorePanel.classList.remove('open');
+
+        // Open console panel
+        controlPanel.classList.add('open');
+
+        // Hide all toggle buttons
+        panelToggle.classList.add('hidden');
+        inventoryToggle.classList.add('hidden');
+        exploreToggle.classList.add('hidden');
+    } else if (event.key === 'x' || event.key === 'X') {
+        // X key: Close info box, then open inventory panel
+        // Close any open info box
+        const infoBox = document.getElementById('object-info-box');
+        if (infoBox && infoBox.classList.contains('show')) {
+            infoBox.classList.remove('show');
+        }
+
+        // Exit combat mode if active
+        if (window.combatManager && window.combatManager.inCombat && window.combatManager.combatMode === 'voluntary') {
+            window.combatManager.exitVoluntaryCombat();
+        }
+
+        // Close all panels
+        controlPanel.classList.remove('open');
+        inventoryPanel.classList.remove('open');
+        explorePanel.classList.remove('open');
+
+        // Open inventory panel
+        inventoryPanel.classList.add('open');
+
+        // Hide all toggle buttons
+        panelToggle.classList.add('hidden');
+        inventoryToggle.classList.add('hidden');
+        exploreToggle.classList.add('hidden');
+
+        // Render inventory when opening
+        renderInventory();
+    } else if (event.key === 'c' || event.key === 'C') {
+        // C key: Close info box, then open explore panel
+        // Close any open info box
+        const infoBox = document.getElementById('object-info-box');
+        if (infoBox && infoBox.classList.contains('show')) {
+            infoBox.classList.remove('show');
+        }
+
+        // Exit combat mode if active
+        if (window.combatManager && window.combatManager.inCombat && window.combatManager.combatMode === 'voluntary') {
+            window.combatManager.exitVoluntaryCombat();
+        }
+
+        // Close all panels
+        controlPanel.classList.remove('open');
+        inventoryPanel.classList.remove('open');
+        explorePanel.classList.remove('open');
+
+        // Open explore panel
+        explorePanel.classList.add('open');
+
+        // Hide all toggle buttons
+        panelToggle.classList.add('hidden');
+        inventoryToggle.classList.add('hidden');
+        exploreToggle.classList.add('hidden');
+
+        // Update explore panel content
+        updateExplorePanel();
+    } else if (event.key === 'Tab') {
+        // Tab key: Cycle through panels (console -> inventory -> explore -> console...)
+        event.preventDefault(); // Prevent default tab behavior
+
+        // Exit combat mode if active
+        if (window.combatManager && window.combatManager.inCombat && window.combatManager.combatMode === 'voluntary') {
+            window.combatManager.exitVoluntaryCombat();
+        }
+
+        const panels = [
+            { panel: controlPanel, toggle: panelToggle, openAction: () => {} },
+            { panel: inventoryPanel, toggle: inventoryToggle, openAction: renderInventory },
+            { panel: explorePanel, toggle: exploreToggle, openAction: updateExplorePanel }
+        ];
+
+        // Close all panels
+        controlPanel.classList.remove('open');
+        inventoryPanel.classList.remove('open');
+        explorePanel.classList.remove('open');
+
+        // Hide all toggle buttons (since a panel will be open)
+        panelToggle.classList.add('hidden');
+        inventoryToggle.classList.add('hidden');
+        exploreToggle.classList.add('hidden');
+
+        // Open the next panel
+        const nextPanel = panels[currentPanelIndex];
+        nextPanel.panel.classList.add('open');
+        nextPanel.openAction();
+
+        // Move to next panel for next Tab press
+        currentPanelIndex = (currentPanelIndex + 1) % panels.length;
+    } else if (event.key === 'Enter') {
+        // Enter key: Could be used for menu confirmations in the future
+        // For now, just prevent default to avoid accidental form submissions
+        event.preventDefault();
+    } else if (event.key >= '0' && event.key <= '9') {
+        // Number keys: Set frequency stepper to exact value
+        if (steppers && steppers[4]) { // Frequency is stepper[4]
+            const value = parseInt(event.key);
+            if (value >= 0 && value <= 10) { // Ensure within stepper range
+                steppers[4].setValue(value);
+            }
+        }
+    } else if (event.key === '+' || event.key === '=') {
+        // Plus key: Increase zoom stepper
+        if (steppers && steppers[0]) { // Zoom is stepper[0]
+            steppers[0].increase();
+        }
+    } else if (event.key === '-') {
+        // Minus key: Decrease zoom stepper
+        if (steppers && steppers[0]) { // Zoom is stepper[0]
+            steppers[0].decrease();
+        }
+    } else if (event.key === 'ArrowUp' || event.key === 'w' || event.key === 'W') {
+        // Up arrow or W: Increase vertical stepper
+        if (steppers && steppers[1]) { // Vertical is stepper[1]
+            steppers[1].increase();
+        }
+    } else if (event.key === 'ArrowDown' || event.key === 's' || event.key === 'S') {
+        // Down arrow or S: Decrease vertical stepper
+        if (steppers && steppers[1]) { // Vertical is stepper[1]
+            steppers[1].decrease();
+        }
+    } else if (event.key === 'ArrowLeft' || event.key === 'a' || event.key === 'A') {
+        // Left arrow or A: Decrease spacing stepper
+        if (steppers && steppers[2]) { // Spacing is stepper[2]
+            steppers[2].decrease();
+        }
+    } else if (event.key === 'ArrowRight' || event.key === 'd' || event.key === 'D') {
+        // Right arrow or D: Increase spacing stepper
+        if (steppers && steppers[2]) { // Spacing is stepper[2]
+            steppers[2].increase();
+        }
+    } else if (event.key === 'q' || event.key === 'Q') {
+        // Q key: Decrease speed stepper
+        if (steppers && steppers[3]) { // Speed is stepper[3]
+            steppers[3].decrease();
+        }
+    } else if (event.key === 'e' || event.key === 'E') {
+        // E key: Increase speed stepper
+        if (steppers && steppers[3]) { // Speed is stepper[3]
+            steppers[3].increase();
+        }
+    } else if (event.key === 'f' || event.key === 'F') {
+        // F key: Skip turn
+        if (!travelState.isTraveling && !skipTurnCooldown) {
+            skipTurn();
+        }
     }
 });
 
@@ -2912,6 +3161,13 @@ function renderExploreContent() {
             createPlutoRobotCraftingSection(exploreContent, currentObject);
         }
 
+        // Special handling for PLEIADES - add crafting stations
+        if (currentLocation.toUpperCase() === 'PLEIADES' || currentLocation.toLowerCase() === 'pleiades') {
+            createPleiadesCraftingSection(exploreContent, currentObject);
+            createPleiadesWeaponsCraftingSection(exploreContent, currentObject);
+            createPleiadesRobotCraftingSection(exploreContent, currentObject);
+        }
+
         // Special handling for URANUS - add crafting stations
         if (currentLocation.toUpperCase() === 'URANUS' || currentLocation.toLowerCase() === 'uranus') {
             // Clear any existing description content
@@ -2946,6 +3202,12 @@ function renderExploreContent() {
             createPlutoCraftingSection(exploreContent, currentObject);
             createPlutoWeaponsCraftingSection(exploreContent, currentObject);
             createPlutoRobotCraftingSection(exploreContent, currentObject);
+        }
+        // Special handling for PLEIADES (when it doesn't have exploreContent)
+        else if (currentLocation.toUpperCase() === 'PLEIADES' || currentLocation.toLowerCase() === 'pleiades') {
+            createPleiadesCraftingSection(exploreContent, currentObject);
+            createPleiadesWeaponsCraftingSection(exploreContent, currentObject);
+            createPleiadesRobotCraftingSection(exploreContent, currentObject);
         }
         // Special handling for URANUS (when it doesn't have exploreContent)
         else if (currentLocation.toUpperCase() === 'URANUS' || currentLocation.toLowerCase() === 'uranus') {
@@ -3930,6 +4192,386 @@ function createPlutoRobotCraftingSection(parentElement, plutoObject) {
 
         // Add robot
         window.inventoryManager.addItem('robot', 1);
+
+        // Update displays
+        updateInventoryDisplay();
+        checkRequirements();
+
+        // Refresh explore panel (updates inventory and crafting requirements)
+        if (window.updateExplorePanel) {
+            window.updateExplorePanel();
+        }
+
+        // Visual feedback
+        buildButton.style.backgroundColor = 'rgba(196, 213, 188, 0.3)';
+        setTimeout(() => {
+            checkRequirements();
+        }, 200);
+    });
+
+    // Hover effects
+    buildButton.addEventListener('mouseenter', () => {
+        if (!buildButton.disabled) {
+            buildButton.style.backgroundColor = 'rgba(196, 213, 188, 0.25)';
+        }
+    });
+
+    buildButton.addEventListener('mouseleave', () => {
+        if (!buildButton.disabled) {
+            checkRequirements();
+        }
+    });
+
+    craftingSection.appendChild(buildButton);
+    parentElement.appendChild(craftingSection);
+}
+
+// Helper function to create Pleiades crafting section (slave + iron + aura = man)
+function createPleiadesCraftingSection(parentElement, pleiadesObject) {
+    const craftingSection = document.createElement('div');
+    craftingSection.style.marginTop = '1rem';
+    craftingSection.style.padding = '1rem';
+    craftingSection.style.backgroundColor = 'rgba(196, 213, 188, 0.05)';
+    craftingSection.style.borderRadius = '4px';
+    craftingSection.style.border = '1px solid rgba(196, 213, 188, 0.1)';
+
+    // Inventory status
+    const inventoryDiv = document.createElement('div');
+    inventoryDiv.style.display = 'flex';
+    inventoryDiv.style.justifyContent = 'space-around';
+    inventoryDiv.style.marginBottom = '1rem';
+    inventoryDiv.style.fontFamily = 'var(--font-primary)';
+    inventoryDiv.style.fontSize = '0.625rem';
+    inventoryDiv.style.color = 'var(--color--foreground)';
+    inventoryDiv.style.opacity = '0.7';
+
+    function updateInventoryDisplay() {
+        inventoryDiv.innerHTML = '';
+        const items = [
+            { name: 'Slave', id: 'slaves', quantity: window.tradingGame ? window.tradingGame.getCommodityQuantity('slaves') : 0 },
+            { name: 'Iron', id: 'iron', quantity: window.tradingGame ? window.tradingGame.getCommodityQuantity('iron') : 0 },
+            { name: 'Aura', id: 'aura', quantity: window.tradingGame ? window.tradingGame.getCommodityQuantity('aura') : 0 }
+        ];
+
+        items.forEach(item => {
+            const itemDiv = document.createElement('div');
+            itemDiv.style.textAlign = 'center';
+            itemDiv.innerHTML = `
+                <div style="font-weight: 600;">${item.name}</div>
+            `;
+            inventoryDiv.appendChild(itemDiv);
+        });
+    }
+
+    updateInventoryDisplay();
+    craftingSection.appendChild(inventoryDiv);
+
+    // Build button
+    const buildButton = document.createElement('button');
+    buildButton.textContent = 'CREATE MAN';
+    buildButton.style.width = '100%';
+    buildButton.style.padding = '0.75rem';
+    buildButton.style.fontFamily = 'var(--font-primary)';
+    buildButton.style.fontWeight = '700';
+    buildButton.style.fontSize = '0.625rem';
+    buildButton.style.textTransform = 'uppercase';
+    buildButton.style.letterSpacing = '0.05em';
+    buildButton.style.color = 'var(--color--foreground)';
+    buildButton.style.backgroundColor = 'rgba(196, 213, 188, 0.1)';
+    buildButton.style.border = '1px solid rgba(196, 213, 188, 0.3)';
+    buildButton.style.borderRadius = '4px';
+    buildButton.style.cursor = 'pointer';
+    buildButton.style.transition = 'all 0.2s';
+
+    // Check if player has required items
+    function checkRequirements() {
+        const hasSlave = window.tradingGame && window.tradingGame.getCommodityQuantity('slaves') >= 1;
+        const hasIron = window.tradingGame && window.tradingGame.getCommodityQuantity('iron') >= 1;
+        const hasAura = window.tradingGame && window.tradingGame.getCommodityQuantity('aura') >= 1;
+
+        const canCraft = hasSlave && hasIron && hasAura;
+        buildButton.disabled = !canCraft;
+
+        if (canCraft) {
+            buildButton.style.backgroundColor = 'rgba(196, 213, 188, 0.2)';
+            buildButton.style.cursor = 'pointer';
+            buildButton.style.opacity = '1';
+        } else {
+            buildButton.style.backgroundColor = 'rgba(196, 213, 188, 0.1)';
+            buildButton.style.cursor = 'not-allowed';
+            buildButton.style.opacity = '0.5';
+        }
+    }
+
+    checkRequirements();
+
+    // Build button click handler
+    buildButton.addEventListener('click', () => {
+        if (buildButton.disabled) return;
+
+        // Consume items
+        if (window.tradingGame) {
+            window.tradingGame.commodities['slaves'] -= 1;
+            window.tradingGame.commodities['iron'] -= 1;
+            window.tradingGame.commodities['aura'] -= 1;
+        }
+
+        // Add Man
+        window.inventoryManager.addItem('man', 1);
+
+        // Update displays
+        updateInventoryDisplay();
+        checkRequirements();
+
+        // Refresh explore panel (updates inventory and crafting requirements)
+        if (window.updateExplorePanel) {
+            window.updateExplorePanel();
+        }
+
+        // Visual feedback
+        buildButton.style.backgroundColor = 'rgba(196, 213, 188, 0.3)';
+        setTimeout(() => {
+            checkRequirements();
+        }, 200);
+    });
+
+    // Hover effects
+    buildButton.addEventListener('mouseenter', () => {
+        if (!buildButton.disabled) {
+            buildButton.style.backgroundColor = 'rgba(196, 213, 188, 0.25)';
+        }
+    });
+
+    buildButton.addEventListener('mouseleave', () => {
+        if (!buildButton.disabled) {
+            checkRequirements();
+        }
+    });
+
+    craftingSection.appendChild(buildButton);
+    parentElement.appendChild(craftingSection);
+}
+
+// Helper function to create Pleiades weapons crafting section (slave + gold + aura = woman)
+function createPleiadesWeaponsCraftingSection(parentElement, pleiadesObject) {
+    const craftingSection = document.createElement('div');
+    craftingSection.style.marginTop = '1rem';
+    craftingSection.style.padding = '1rem';
+    craftingSection.style.backgroundColor = 'rgba(196, 213, 188, 0.05)';
+    craftingSection.style.borderRadius = '4px';
+    craftingSection.style.border = '1px solid rgba(196, 213, 188, 0.1)';
+
+    // Inventory status
+    const inventoryDiv = document.createElement('div');
+    inventoryDiv.style.display = 'flex';
+    inventoryDiv.style.justifyContent = 'space-around';
+    inventoryDiv.style.marginBottom = '1rem';
+    inventoryDiv.style.fontFamily = 'var(--font-primary)';
+    inventoryDiv.style.fontSize = '0.625rem';
+    inventoryDiv.style.color = 'var(--color--foreground)';
+    inventoryDiv.style.opacity = '0.7';
+
+    function updateInventoryDisplay() {
+        inventoryDiv.innerHTML = '';
+        const items = [
+            { name: 'Slave', id: 'slaves', quantity: window.tradingGame ? window.tradingGame.getCommodityQuantity('slaves') : 0 },
+            { name: 'Gold', id: 'gold', quantity: window.tradingGame ? window.tradingGame.getCommodityQuantity('gold') : 0 },
+            { name: 'Aura', id: 'aura', quantity: window.tradingGame ? window.tradingGame.getCommodityQuantity('aura') : 0 }
+        ];
+
+        items.forEach(item => {
+            const itemDiv = document.createElement('div');
+            itemDiv.style.textAlign = 'center';
+            itemDiv.innerHTML = `
+                <div style="font-weight: 600;">${item.name}</div>
+            `;
+            inventoryDiv.appendChild(itemDiv);
+        });
+    }
+
+    updateInventoryDisplay();
+    craftingSection.appendChild(inventoryDiv);
+
+    // Build button
+    const buildButton = document.createElement('button');
+    buildButton.textContent = 'CREATE WOMAN';
+    buildButton.style.width = '100%';
+    buildButton.style.padding = '0.75rem';
+    buildButton.style.fontFamily = 'var(--font-primary)';
+    buildButton.style.fontWeight = '700';
+    buildButton.style.fontSize = '0.625rem';
+    buildButton.style.textTransform = 'uppercase';
+    buildButton.style.letterSpacing = '0.05em';
+    buildButton.style.color = 'var(--color--foreground)';
+    buildButton.style.backgroundColor = 'rgba(196, 213, 188, 0.1)';
+    buildButton.style.border = '1px solid rgba(196, 213, 188, 0.3)';
+    buildButton.style.borderRadius = '4px';
+    buildButton.style.cursor = 'pointer';
+    buildButton.style.transition = 'all 0.2s';
+
+    // Check if player has required items
+    function checkRequirements() {
+        const hasSlave = window.tradingGame && window.tradingGame.getCommodityQuantity('slaves') >= 1;
+        const hasGold = window.tradingGame && window.tradingGame.getCommodityQuantity('gold') >= 1;
+        const hasAura = window.tradingGame && window.tradingGame.getCommodityQuantity('aura') >= 1;
+
+        const canCraft = hasSlave && hasGold && hasAura;
+        buildButton.disabled = !canCraft;
+
+        if (canCraft) {
+            buildButton.style.backgroundColor = 'rgba(196, 213, 188, 0.2)';
+            buildButton.style.cursor = 'pointer';
+            buildButton.style.opacity = '1';
+        } else {
+            buildButton.style.backgroundColor = 'rgba(196, 213, 188, 0.1)';
+            buildButton.style.cursor = 'not-allowed';
+            buildButton.style.opacity = '0.5';
+        }
+    }
+
+    checkRequirements();
+
+    // Build button click handler
+    buildButton.addEventListener('click', () => {
+        if (buildButton.disabled) return;
+
+        // Consume items
+        if (window.tradingGame) {
+            window.tradingGame.commodities['slaves'] -= 1;
+            window.tradingGame.commodities['gold'] -= 1;
+            window.tradingGame.commodities['aura'] -= 1;
+        }
+
+        // Add Woman
+        window.inventoryManager.addItem('woman', 1);
+
+        // Update displays
+        updateInventoryDisplay();
+        checkRequirements();
+
+        // Refresh explore panel (updates inventory and crafting requirements)
+        if (window.updateExplorePanel) {
+            window.updateExplorePanel();
+        }
+
+        // Visual feedback
+        buildButton.style.backgroundColor = 'rgba(196, 213, 188, 0.3)';
+        setTimeout(() => {
+            checkRequirements();
+        }, 200);
+    });
+
+    // Hover effects
+    buildButton.addEventListener('mouseenter', () => {
+        if (!buildButton.disabled) {
+            buildButton.style.backgroundColor = 'rgba(196, 213, 188, 0.25)';
+        }
+    });
+
+    buildButton.addEventListener('mouseleave', () => {
+        if (!buildButton.disabled) {
+            checkRequirements();
+        }
+    });
+
+    craftingSection.appendChild(buildButton);
+    parentElement.appendChild(craftingSection);
+}
+
+// Helper function to create Pleiades robot crafting section (man + woman + aura = baby)
+function createPleiadesRobotCraftingSection(parentElement, pleiadesObject) {
+    const craftingSection = document.createElement('div');
+    craftingSection.style.marginTop = '1rem';
+    craftingSection.style.padding = '1rem';
+    craftingSection.style.backgroundColor = 'rgba(196, 213, 188, 0.05)';
+    craftingSection.style.borderRadius = '4px';
+    craftingSection.style.border = '1px solid rgba(196, 213, 188, 0.1)';
+
+    // Inventory status
+    const inventoryDiv = document.createElement('div');
+    inventoryDiv.style.display = 'flex';
+    inventoryDiv.style.justifyContent = 'space-around';
+    inventoryDiv.style.marginBottom = '1rem';
+    inventoryDiv.style.fontFamily = 'var(--font-primary)';
+    inventoryDiv.style.fontSize = '0.625rem';
+    inventoryDiv.style.color = 'var(--color--foreground)';
+    inventoryDiv.style.opacity = '0.7';
+
+    function updateInventoryDisplay() {
+        inventoryDiv.innerHTML = '';
+        const items = [
+            { name: 'Man', id: 'man', quantity: window.inventoryManager ? window.inventoryManager.getItemQuantity('man') : 0 },
+            { name: 'Woman', id: 'woman', quantity: window.inventoryManager ? window.inventoryManager.getItemQuantity('woman') : 0 },
+            { name: 'Aura', id: 'aura', quantity: window.tradingGame ? window.tradingGame.getCommodityQuantity('aura') : 0 }
+        ];
+
+        items.forEach(item => {
+            const itemDiv = document.createElement('div');
+            itemDiv.style.textAlign = 'center';
+            itemDiv.innerHTML = `
+                <div style="font-weight: 600;">${item.name}</div>
+            `;
+            inventoryDiv.appendChild(itemDiv);
+        });
+    }
+
+    updateInventoryDisplay();
+    craftingSection.appendChild(inventoryDiv);
+
+    // Build button
+    const buildButton = document.createElement('button');
+    buildButton.textContent = 'CREATE BABY';
+    buildButton.style.width = '100%';
+    buildButton.style.padding = '0.75rem';
+    buildButton.style.fontFamily = 'var(--font-primary)';
+    buildButton.style.fontWeight = '700';
+    buildButton.style.fontSize = '0.625rem';
+    buildButton.style.textTransform = 'uppercase';
+    buildButton.style.letterSpacing = '0.05em';
+    buildButton.style.color = 'var(--color--foreground)';
+    buildButton.style.backgroundColor = 'rgba(196, 213, 188, 0.1)';
+    buildButton.style.border = '1px solid rgba(196, 213, 188, 0.3)';
+    buildButton.style.borderRadius = '4px';
+    buildButton.style.cursor = 'pointer';
+    buildButton.style.transition = 'all 0.2s';
+
+    // Check if player has required items
+    function checkRequirements() {
+        const hasMan = window.inventoryManager && window.inventoryManager.hasItem('man', 1);
+        const hasWoman = window.inventoryManager && window.inventoryManager.hasItem('woman', 1);
+        const hasAura = window.tradingGame && window.tradingGame.getCommodityQuantity('aura') >= 1;
+
+        const canCraft = hasMan && hasWoman && hasAura;
+        buildButton.disabled = !canCraft;
+
+        if (canCraft) {
+            buildButton.style.backgroundColor = 'rgba(196, 213, 188, 0.2)';
+            buildButton.style.cursor = 'pointer';
+            buildButton.style.opacity = '1';
+        } else {
+            buildButton.style.backgroundColor = 'rgba(196, 213, 188, 0.1)';
+            buildButton.style.cursor = 'not-allowed';
+            buildButton.style.opacity = '0.5';
+        }
+    }
+
+    checkRequirements();
+
+    // Build button click handler
+    buildButton.addEventListener('click', () => {
+        if (buildButton.disabled) return;
+
+        // Consume items
+        if (window.inventoryManager) {
+            window.inventoryManager.removeItem('man', 1);
+            window.inventoryManager.removeItem('woman', 1);
+        }
+        if (window.tradingGame) {
+            window.tradingGame.commodities['aura'] -= 1;
+        }
+
+        // Add Baby
+        window.inventoryManager.addItem('baby', 1);
 
         // Update displays
         updateInventoryDisplay();
@@ -5804,8 +6446,24 @@ for (let i = 0; i < 5; i++) {
                     }
                 }
             } else if (i === 4) {
-                // Frequency control: when frequency is 4, hide labels and lines
+                // Frequency control: when frequency is 1, enter combat mode
+                // When frequency is 4, hide labels and lines
                 // When frequency is 6, Mercury is added to greenlist
+
+                // Combat mode at frequency 1
+                if (value === 1) {
+                    // Enter voluntary combat mode (keep console visible)
+                    if (window.combatManager && !window.combatManager.inCombat) {
+                        window.combatManager.enterVoluntaryCombat();
+                    }
+                } else {
+                    // Exit combat mode if not in defend mode
+                    if (window.combatManager && window.combatManager.combatMode === 'voluntary') {
+                        window.combatManager.exitVoluntaryCombat();
+                    }
+                }
+
+                // Visual effects at frequency 4
                 if (value === 4) {
                     // Hide labels and lines when frequency is 4
                     if (sceneManager) {
@@ -5873,65 +6531,71 @@ let sessionSkips = 0;
 function skipTurn() {
     if (travelState.isTraveling || skipTurnCooldown) return;
 
-    // Check if NPCs should move this turn (simultaneously with turn advancement)
-    npcManager.advanceTurn();
+    // Store current location as the "last skipped location" for agro NPCs to target
+    localStorage.setItem('player_last_skipped_location', currentLocation);
+    console.log(`📍 Player skipped turn at location: ${currentLocation} - agro NPCs will target this location`);
 
-    // Advance turn (same logic as when traveling)
-    if (tradingGame) {
-        tradingGame.advanceTurn(currentLocation);
-
-    // Update explore panel to show new commodities/prices
-        if (window.updateExplorePanel) {
-            window.updateExplorePanel();
-        }
-
-        // Increment session skip counter
-        sessionSkips++;
-
-        // Award $200 bonus for the first skip in this session
-        if (sessionSkips === 1) {
-            if (tradingGame) {
-                tradingGame.money += 200;
-                console.log('First skip bonus awarded: +$200 (total: $' + tradingGame.money + ')');
-
-                // Force update the money display by re-rendering inventory
-                setTimeout(() => {
-                    if (window.renderInventory) {
-                        window.renderInventory();
-                    }
-                }, 10);
-            }
-        }
-
-        // Check for Dreamer achievement (5 skips in session)
-        if (sessionSkips >= 5 && window.scoreManager && !window.scoreManager.hasAchievement('Dreamer')) {
-            const isNewAchievement = window.scoreManager.addAchievement('Dreamer');
-            if (isNewAchievement && window.updateScoreDisplay) {
-                window.updateScoreDisplay();
-            }
-        }
-
-        // Award 1 point for skipping a turn
-        if (window.scoreManager) {
-            window.scoreManager.addScore(1);
-            if (window.updateScoreDisplay) {
-                window.updateScoreDisplay();
-            }
-        }
-
-        // Start 1-minute cooldown
-        skipTurnCooldown = true;
-        skipTurnCooldownEnd = Date.now() + (60 * 1000); // 1 minute from now
-
-        // Update button display
-        updateSkipTurnDisplay();
-
-        // Reset cooldown after 1 minute
-        setTimeout(() => {
-            skipTurnCooldown = false;
-            updateSkipTurnDisplay();
-        }, 60 * 1000);
+    // Advance all NPC turns simultaneously (let them start moving/animating)
+    if (npcManager) {
+        npcManager.advanceAllTurnsSimultaneously();
     }
+
+    // Process delayed agro activations BEFORE moving agro NPCs
+    if (window.combatManager) {
+        window.combatManager.advanceTurn();
+    }
+
+    // Move all agro NPCs to the player's last skipped location
+    if (npcManager) {
+        npcManager.moveAllAgroNPCsOnPlayerSkip();
+    }
+
+    // Increment session skip counter
+    sessionSkips++;
+
+    // Award $200 bonus for the first skip in this session
+    if (sessionSkips === 1) {
+        if (tradingGame) {
+            tradingGame.money += 200;
+            console.log('First skip bonus awarded: +$200 (total: $' + tradingGame.money + ')');
+
+            // Force update the money display by re-rendering inventory
+            setTimeout(() => {
+                if (window.renderInventory) {
+                    window.renderInventory();
+                }
+            }, 10);
+        }
+    }
+
+    // Check for Dreamer achievement (5 skips in session)
+    if (sessionSkips >= 5 && window.scoreManager && !window.scoreManager.hasAchievement('Dreamer')) {
+        const isNewAchievement = window.scoreManager.addAchievement('Dreamer');
+        if (isNewAchievement && window.updateScoreDisplay) {
+            window.updateScoreDisplay();
+        }
+    }
+
+    // Award 1 point for skipping a turn
+    if (window.scoreManager) {
+        window.scoreManager.addScore(1);
+        if (window.updateScoreDisplay) {
+            window.updateScoreDisplay();
+        }
+    }
+
+    // Start 30-second cooldown
+    skipTurnCooldown = true;
+    skipTurnCooldownEnd = Date.now() + (30 * 1000); // 30 seconds from now
+
+    // Update button display
+    updateSkipTurnDisplay();
+
+    // Reset cooldown after 30 seconds
+    setTimeout(() => {
+        skipTurnCooldown = false;
+        updateSkipTurnDisplay();
+    }, 30 * 1000);
 
     // Pillstepper value stays at 0 since buttons are hidden
 }

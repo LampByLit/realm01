@@ -149,6 +149,7 @@ export class PillStepper {
     setValue(value) {
         this.value = Math.max(Math.min(value, this.max), this.min);
         this.updateStyles();
+        this.onChange(this.value);
     }
 }
 
