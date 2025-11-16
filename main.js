@@ -3243,6 +3243,11 @@ function renderExploreContent() {
         if (currentLocation.toUpperCase() === 'GAIA BH1' || currentLocation.toLowerCase() === 'gaia bh1') {
             createGaiaBH1BankingSystem(exploreContent, currentObject);
         }
+
+        // Special handling for MONOLITH - final consecration
+        if (currentLocation.toUpperCase() === 'MONOLITH' || currentLocation.toLowerCase() === 'monolith') {
+            createMonolithButton(exploreContent, currentObject);
+        }
     } else if (currentObject) {
         // Special handling for PLUTO (when it doesn't have exploreContent)
         if (currentLocation.toUpperCase() === 'PLUTO' || currentLocation.toLowerCase() === 'pluto') {
@@ -6982,5 +6987,173 @@ function createStationButton(parentElement, stationObject) {
     });
 
     parentElement.appendChild(button);
+}
+
+// Helper function to create Monolith consecration button (final endgame)
+function createMonolithButton(parentElement, monolithObject) {
+    // Clear existing content
+    parentElement.innerHTML = '';
+
+    // Add title/description
+    const titleDiv = document.createElement('div');
+    titleDiv.style.textAlign = 'center';
+    titleDiv.style.marginBottom = '2rem';
+    titleDiv.style.fontFamily = 'var(--font-primary)';
+    titleDiv.style.fontSize = '1.2rem';
+    titleDiv.style.fontWeight = '600';
+    titleDiv.style.color = 'var(--color--foreground)';
+    titleDiv.textContent = 'THE MONOLITH';
+    parentElement.appendChild(titleDiv);
+
+    // Create the large shimmering button (no text)
+    const monolithButton = document.createElement('button');
+    monolithButton.className = 'monolith-button';
+    monolithButton.style.width = '200px';
+    monolithButton.style.height = '200px';
+    monolithButton.style.borderRadius = '50%';
+    monolithButton.style.border = '4px solid gold';
+    monolithButton.style.background = 'radial-gradient(circle, #ffd700, gold, #daa520)';
+    monolithButton.style.cursor = 'pointer';
+    monolithButton.style.position = 'relative';
+    monolithButton.style.overflow = 'hidden';
+    monolithButton.style.margin = '0 auto';
+    monolithButton.style.display = 'block';
+    monolithButton.style.animation = 'monolith-shimmer 2s infinite ease-in-out';
+    monolithButton.style.boxShadow = '0 0 30px gold';
+
+    // Add sparkle effect overlay
+    const sparkleOverlay = document.createElement('div');
+    sparkleOverlay.style.position = 'absolute';
+    sparkleOverlay.style.top = '0';
+    sparkleOverlay.style.left = '0';
+    sparkleOverlay.style.width = '100%';
+    sparkleOverlay.style.height = '100%';
+    sparkleOverlay.style.background = 'radial-gradient(circle at 30% 30%, rgba(255,255,255,0.8) 0%, transparent 50%), radial-gradient(circle at 70% 70%, rgba(255,255,255,0.6) 0%, transparent 50%)';
+    sparkleOverlay.style.animation = 'monolith-sparkle 3s infinite linear';
+    sparkleOverlay.style.pointerEvents = 'none';
+    monolithButton.appendChild(sparkleOverlay);
+
+    // Function to check requirements
+    function checkMonolithRequirements() {
+        const hasEarth = window.inventoryManager && window.inventoryManager.hasItem('earth', 1);
+        const hasFire = window.inventoryManager && window.inventoryManager.hasItem('fire', 1);
+        const hasWind = window.inventoryManager && window.inventoryManager.hasItem('wind', 1);
+        const hasWater = window.inventoryManager && window.inventoryManager.hasItem('water', 1);
+        const hasBody = window.inventoryManager && window.inventoryManager.hasItem('body', 1);
+        const hasSoul = window.inventoryManager && window.inventoryManager.hasItem('soul', 1);
+        const hasSpirit = window.inventoryManager && window.inventoryManager.hasItem('spirit', 1);
+
+        return hasEarth && hasFire && hasWind && hasWater && hasBody && hasSoul && hasSpirit;
+    }
+
+    // Click handler
+    monolithButton.addEventListener('click', () => {
+        if (monolithButton.disabled) return;
+
+        const hasRequirements = checkMonolithRequirements();
+
+        if (hasRequirements) {
+            // TODO: Win condition - implement later
+            console.log('🎉 MONOLITH: Player has all requirements - WIN condition!');
+            // For now, just show a placeholder message
+            const winMessage = document.createElement('div');
+            winMessage.style.textAlign = 'center';
+            winMessage.style.marginTop = '2rem';
+            winMessage.style.fontFamily = 'var(--font-primary)';
+            winMessage.style.fontSize = '1.5rem';
+            winMessage.style.fontWeight = '700';
+            winMessage.style.color = 'gold';
+            winMessage.textContent = 'CONGRATULATIONS! You have achieved SINGULARITY!';
+            parentElement.appendChild(winMessage);
+        } else {
+            // Game over - reincarnation countdown
+            showReincarnationCountdown();
+        }
+
+        // Disable button after click
+        monolithButton.disabled = true;
+        monolithButton.style.opacity = '0.5';
+        monolithButton.style.cursor = 'not-allowed';
+        monolithButton.style.animation = 'none';
+    });
+
+    parentElement.appendChild(monolithButton);
+}
+
+// Function to show reincarnation countdown popup
+function showReincarnationCountdown() {
+    // Create popup overlay
+    const popup = document.createElement('div');
+    popup.className = 'reincarnation-popup';
+    popup.style.position = 'fixed';
+    popup.style.top = '0';
+    popup.style.left = '0';
+    popup.style.width = '100%';
+    popup.style.height = '100%';
+    popup.style.backgroundColor = 'rgba(0, 0, 0, 0.9)';
+    popup.style.zIndex = '10000';
+    popup.style.display = 'flex';
+    popup.style.alignItems = 'center';
+    popup.style.justifyContent = 'center';
+
+    const popupContent = document.createElement('div');
+    popupContent.style.backgroundColor = 'rgba(20, 20, 20, 0.95)';
+    popupContent.style.border = '3px solid #ff0000';
+    popupContent.style.padding = '3rem';
+    popupContent.style.borderRadius = '10px';
+    popupContent.style.textAlign = 'center';
+    popupContent.style.maxWidth = '500px';
+
+    const title = document.createElement('div');
+    title.style.fontFamily = 'var(--font-primary)';
+    title.style.fontSize = '2rem';
+    title.style.fontWeight = '700';
+    title.style.color = '#ff0000';
+    title.style.marginBottom = '1rem';
+    title.style.textTransform = 'uppercase';
+    title.style.letterSpacing = '0.1em';
+    title.textContent = 'REINCARNATION INITIATED';
+
+    const message = document.createElement('div');
+    message.style.fontFamily = 'var(--font-primary)';
+    message.style.fontSize = '1.2rem';
+    message.style.color = 'var(--color--foreground)';
+    message.style.marginBottom = '2rem';
+    message.textContent = 'Insufficient Elements for Singularity. Beginning reincarnation sequence...';
+
+    const countdownDisplay = document.createElement('div');
+    countdownDisplay.style.fontFamily = 'var(--font-primary)';
+    countdownDisplay.style.fontSize = '3rem';
+    countdownDisplay.style.fontWeight = '700';
+    countdownDisplay.style.color = '#ff0000';
+    countdownDisplay.style.marginBottom = '1rem';
+
+    popupContent.appendChild(title);
+    popupContent.appendChild(message);
+    popupContent.appendChild(countdownDisplay);
+    popup.appendChild(popupContent);
+    document.body.appendChild(popup);
+
+    // Start countdown
+    let countdown = 10;
+    countdownDisplay.textContent = countdown;
+
+    const countdownInterval = setInterval(() => {
+        countdown--;
+        countdownDisplay.textContent = countdown;
+
+        if (countdown <= 0) {
+            clearInterval(countdownInterval);
+
+            // Game over - reload the page
+            message.textContent = 'Reincarnation complete. The cycle begins anew...';
+            countdownDisplay.textContent = 'GAME OVER';
+
+            // Auto-reload after 3 seconds
+            setTimeout(() => {
+                window.location.reload();
+            }, 3000);
+        }
+    }, 1000);
 }
 

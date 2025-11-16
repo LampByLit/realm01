@@ -2109,3 +2109,42 @@ body {
     text-transform: uppercase;
 }
 
+/* Monolith Button Animations */
+@keyframes monolith-shimmer {
+    0% {
+        box-shadow: 0 0 20px gold, 0 0 40px rgba(255, 215, 0, 0.3);
+        transform: scale(1);
+    }
+    50% {
+        box-shadow: 0 0 40px gold, 0 0 80px rgba(255, 215, 0, 0.6), 0 0 120px rgba(255, 215, 0, 0.3);
+        transform: scale(1.05);
+    }
+    100% {
+        box-shadow: 0 0 20px gold, 0 0 40px rgba(255, 215, 0, 0.3);
+        transform: scale(1);
+    }
+}
+
+@keyframes monolith-sparkle {
+    0% {
+        background-position: 0% 0%;
+        opacity: 0.8;
+    }
+    25% {
+        background-position: 100% 0%;
+        opacity: 1;
+    }
+    50% {
+        background-position: 100% 100%;
+        opacity: 0.6;
+    }
+    75% {
+        background-position: 0% 100%;
+        opacity: 0.9;
+    }
+    100% {
+        background-position: 0% 0%;
+        opacity: 0.8;
+    }
+}
+
