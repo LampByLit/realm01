@@ -1,3 +1,7 @@
+// Clear ALL localStorage on game start - NO PERSISTENCE EVER
+localStorage.clear();
+console.log('🧹 Game state completely reset - no localStorage persistence');
+
 import * as THREE from 'three';
 import { PillStepper } from './pillstepper.js';
 import { SceneManager } from './scene-manager.js';
@@ -1661,8 +1665,7 @@ function animate() {
                 tradingGame.advanceTurn(destinationName);
             }
 
-            // Advance NPC turns now that player travel is complete
-            npcManager.advanceTurn();
+            // NPC turns are now advanced at travel START when all are settled, not at completion
 
             currentLocation = destinationName; // Update current location
 
@@ -2057,6 +2060,14 @@ function startTravel(destinationName) {
         const currentFuel = tradingGame.getCommodityQuantity('fuel');
         showTravelError(`Insufficient fuel! Need ${fuelCost} fuel, but you only have ${currentFuel}.`);
         return;
+    }
+
+    // Check if any NPCs are currently traveling - if not, advance all NPC turns simultaneously
+    if (npcManager && !npcManager.areAnyNPCsTraveling()) {
+        console.log('🌌 All NPCs settled - initiating simultaneous movement!');
+        npcManager.advanceAllTurnsSimultaneously();
+    } else {
+        console.log('⏳ NPCs still traveling - using staggered turn system');
     }
     
     // Find destination object

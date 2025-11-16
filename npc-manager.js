@@ -26,6 +26,27 @@ export class NPCManager {
         this.initializePleiadians();
     }
 
+    // Check if any NPCs are currently traveling (have active animations)
+    areAnyNPCsTraveling() {
+        return this.npcs.some(npc => npc.isTraveling);
+    }
+
+    // Advance all NPC turns simultaneously (ignoring individual timers)
+    advanceAllTurnsSimultaneously() {
+        console.log('🚀 Advancing ALL NPC turns simultaneously!');
+        this.npcs.forEach(npc => {
+            // Check for Pleiadian location-based encounter
+            if (npc.name === 'Pleiadians' &&
+                npc.currentLocation.toLowerCase() === this.tradingGame.currentLocation.toLowerCase()) {
+                console.log(`👽 Pleiadians: Co-located with player at ${npc.currentLocation}, initiating encounter then travel`);
+                this.triggerEncounter(npc);
+            }
+            console.log(`🚀 ${npc.name} simultaneous movement triggered!`);
+            this.moveNPC(npc);
+            npc.movementTimer = 0; // Reset timer
+        });
+    }
+
     // Get encounter count for an NPC from localStorage
     getEncounterCount(npcName) {
         const key = `npc_${npcName.toLowerCase()}_encounters`;
@@ -297,6 +318,12 @@ export class NPCManager {
             console.log(`⏰ ${npc.name} turn timer: ${npc.movementTimer}/${moveThreshold} (at ${npc.currentLocation})`);
 
             if (npc.movementTimer >= moveThreshold) {
+                if (npc.name === 'Pleiadians' &&
+                    npc.currentLocation.toLowerCase() === this.tradingGame.currentLocation.toLowerCase()) {
+                    // Pleiadians and player are co-located - encounter first
+                    console.log(`👽 Pleiadians: Co-located with player at ${npc.currentLocation}, initiating encounter then travel`);
+                    this.triggerEncounter(npc);
+                }
                 console.log(`🚀 ${npc.name} movement triggered!`);
                 this.moveNPC(npc);
                 npc.movementTimer = 0;
@@ -1301,6 +1328,8 @@ export class NPCManager {
             popup.className = 'npc-popup venusian-popup';
         } else if (npc && npc.name === 'Reptilians') {
             popup.className = 'npc-popup reptilian-popup';
+        } else if (npc && npc.name === 'Pleiadians') {
+            popup.className = 'npc-popup pleiadian-popup';
         } else {
             popup.className = 'npc-popup';
         }

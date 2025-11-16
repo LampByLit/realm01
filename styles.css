@@ -1488,6 +1488,29 @@ body {
     border-bottom: 1px solid rgba(0, 255, 0, 0.3);
 }
 
+/* Pleiadian popup styling - BLUE THEME */
+.pleiadian-popup .npc-popup-content {
+    background: linear-gradient(145deg, #00001a 0%, #000033 25%, #000026 50%, #000033 75%, #00001a 100%);
+    border: 3px solid #0088ff;
+    box-shadow:
+        0 8px 32px rgba(0, 136, 255, 0.4),
+        0 0 0 1px rgba(0, 136, 255, 0.1),
+        inset 0 1px 0 rgba(255, 255, 255, 0.1);
+}
+
+.pleiadian-popup .npc-popup-content::before {
+    background: linear-gradient(135deg,
+        rgba(0, 136, 255, 0.1) 0%,
+        rgba(0, 136, 255, 0.05) 50%,
+        rgba(0, 136, 255, 0.1) 100%);
+}
+
+.pleiadian-popup .npc-speaker-label {
+    color: #0088ff;
+    text-shadow: 0 0 10px rgba(0, 136, 255, 0.9);
+    border-bottom: 1px solid rgba(0, 136, 255, 0.3);
+}
+
 .npc-speaker-label::after {
     content: '';
     position: absolute;
