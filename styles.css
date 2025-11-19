@@ -2148,3 +2148,133 @@ body {
     }
 }
 
+/* Intro Screen Styles */
+.intro-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.8);
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+    z-index: 9999;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    opacity: 1;
+    transition: opacity 0.2s ease;
+    pointer-events: auto;
+}
+
+.intro-overlay.hidden {
+    opacity: 0;
+    pointer-events: none;
+}
+
+.intro-content {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    max-width: 90vw;
+    max-height: 90vh;
+}
+
+.intro-text-top {
+    font-family: var(--font-primary);
+    font-weight: 600;
+    font-size: 1.5rem;
+    color: var(--color--foreground);
+    text-transform: uppercase;
+    letter-spacing: 0.2em;
+    margin-bottom: 0.5rem;
+    opacity: 0.9;
+}
+
+.intro-image {
+    margin: 1.5rem 0;
+    max-width: 170px;
+    max-height: 170px;
+}
+
+.intro-image img {
+    width: 100%;
+    height: auto;
+    max-width: 170px;
+    max-height: 170px;
+    object-fit: contain;
+}
+
+.intro-text-bottom {
+    font-family: var(--font-primary);
+    font-weight: 700;
+    font-size: 2.5rem;
+    color: #ffffff;
+    text-transform: uppercase;
+    letter-spacing: 0.15em;
+    margin-top: 0.5rem;
+    text-shadow:
+        0 0 10px rgba(255, 255, 255, 0.5),
+        0 0 20px rgba(255, 255, 255, 0.3),
+        0 0 40px rgba(255, 255, 255, 0.2);
+    background: linear-gradient(45deg, #ffffff, #cccccc, #ffffff);
+    background-size: 200% 200%;
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    animation: shimmer 3s ease-in-out infinite;
+}
+
+@keyframes shimmer {
+    0% {
+        background-position: 0% 50%;
+        text-shadow:
+            0 0 10px rgba(255, 255, 255, 0.5),
+            0 0 20px rgba(255, 255, 255, 0.3),
+            0 0 40px rgba(255, 255, 255, 0.2);
+    }
+    50% {
+        background-position: 100% 50%;
+        text-shadow:
+            0 0 20px rgba(255, 255, 255, 0.8),
+            0 0 40px rgba(255, 255, 255, 0.5),
+            0 0 60px rgba(255, 255, 255, 0.3);
+    }
+    100% {
+        background-position: 0% 50%;
+        text-shadow:
+            0 0 10px rgba(255, 255, 255, 0.5),
+            0 0 20px rgba(255, 255, 255, 0.3),
+            0 0 40px rgba(255, 255, 255, 0.2);
+    }
+}
+
+
+/* Mobile responsiveness for intro screen */
+@media (max-width: 768px) {
+    .intro-text-top {
+        font-size: 1.2rem;
+        letter-spacing: 0.1em;
+        margin-bottom: 0.5rem;
+    }
+
+    .intro-image {
+        max-width: 120px;
+        max-height: 120px;
+        margin: 1.5rem 0;
+    }
+
+    .intro-image img {
+        max-width: 120px;
+        max-height: 120px;
+    }
+
+    .intro-text-bottom {
+        font-size: 2rem;
+        letter-spacing: 0.1em;
+        margin-top: 0.5rem;
+    }
+}
+

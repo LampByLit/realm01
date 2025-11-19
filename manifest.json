@@ -1,7 +1,7 @@
 {
-    "name": "Planes - 3D Art",
-    "short_name": "Planes",
-    "description": "3D web art with stacked horizontal planes",
+    "name": "EX LAMINÆ STRATUM",
+    "short_name": "EX LAMINÆ",
+    "description": "3D space trading and combat simulation game",
     "orientation": "landscape",
     "display": "standalone",
     "start_url": "/",

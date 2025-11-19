@@ -740,6 +740,8 @@ const npcManager = new NPCManager(sceneManager, tradingGame, scene);
 const combatManager = new CombatManager(sceneManager, npcManager, tradingGame, scene);
 
 // Make managers available globally for UI updates
+window.sceneManager = sceneManager;
+window.npcManager = npcManager;
 window.tradingGame = tradingGame;
 window.combatManager = combatManager;
 
@@ -753,6 +755,13 @@ let travelState = {
     endPos: null,
     spaceship: null,
     destinationName: null // Store destination name for completion
+};
+
+// Current infobox state for updating when frequency changes
+let currentInfoBoxState = {
+    objectName: null,
+    isGreenlisted: null,
+    content: null
 };
 
 // Create all scene objects
@@ -812,6 +821,8 @@ let currentZoom = 10;
 // Camera Y position control - smooth animation
 let targetY = 2; // Current Y position (value 5 = y = 2)
 let currentY = 2;
+
+// NPCs now advance simultaneously with player travel (no longer needed)
 
 // Spacing control - smooth animation
 let targetSpacing = 2.5; // Current spacing (value 5 = spacing 2.5)
@@ -1655,6 +1666,8 @@ function animate() {
             );
             
             travelState.isTraveling = false;
+
+            // NPCs already advanced when travel started - no need to advance again
             const destinationName = travelState.destinationName;
             
             // Hide travel indicator
@@ -1674,6 +1687,8 @@ function animate() {
                     if (window.combatManager) {
                         window.combatManager.advanceTurn();
                     }
+
+                    // NPC advancement now happens in the animation loop after travel completes
                 } else {
                     // Getaway travel - consume fuel but skip turn advancement
                     console.log('🏃 Getaway travel - consuming fuel but skipping turn advancement!');
@@ -1732,6 +1747,8 @@ function animate() {
         }
     }
 
+    // NPCs are now advanced when player travel starts (simultaneous movement)
+
     // Update NPC travel animations
     npcManager.updateTravelAnimations();
 
@@ -1745,6 +1762,40 @@ function animate() {
 
     renderer.render(scene, camera);
 }
+
+// Intro screen logic
+function initIntroScreen() {
+    const introOverlay = document.getElementById('intro-overlay');
+
+    // Show intro screen initially
+    introOverlay.classList.remove('hidden');
+
+    // Hide intro screen after 2 seconds or on any key press/click
+    let introTimeout = setTimeout(() => {
+        hideIntroScreen();
+    }, 2000);
+
+    // Hide on any user interaction
+    const hideIntroOnInteraction = () => {
+        clearTimeout(introTimeout);
+        hideIntroScreen();
+    };
+
+    document.addEventListener('keydown', hideIntroOnInteraction, { once: true });
+    document.addEventListener('click', hideIntroOnInteraction, { once: true });
+    document.addEventListener('touchstart', hideIntroOnInteraction, { once: true });
+
+    function hideIntroScreen() {
+        introOverlay.classList.add('hidden');
+        // Remove event listeners
+        document.removeEventListener('keydown', hideIntroOnInteraction);
+        document.removeEventListener('click', hideIntroOnInteraction);
+        document.removeEventListener('touchstart', hideIntroOnInteraction);
+    }
+}
+
+// Initialize intro screen
+initIntroScreen();
 
 animate();
 
@@ -1785,7 +1836,14 @@ function isOnCurrentGreenlist(objectName, baseIsGreenlisted) {
     if (objectName && objectName.toLowerCase() === 'mercury') {
         return frequencyValue === 6;
     }
-    
+
+    // At frequency 3, unlock supernova
+    if (frequencyValue === 3) {
+        if (objectName && objectName.toLowerCase() === 'supernova') {
+            return true;
+        }
+    }
+
     // At frequency 7, unlock outer planets: earth, moon, mars, venus, mercury, saturn, jupiter, neptune, uranus, pluto
     if (frequencyValue === 7) {
         const outerPlanets = ['earth', 'moon', 'mars', 'venus', 'mercury', 'saturn', 'jupiter', 'neptune', 'uranus', 'pluto'];
@@ -1801,6 +1859,15 @@ function isOnCurrentGreenlist(objectName, baseIsGreenlisted) {
         if (objectName && (outerPlanets.includes(objectName.toLowerCase()) || freq8Galaxies.includes(objectName.toLowerCase()))) {
             return true;
         }
+    }
+
+    // At frequency 2, unlock ONLY Atlantis (exclusive)
+    if (frequencyValue === 2) {
+        if (objectName && objectName.toLowerCase() === 'atlantis') {
+            return true;
+        }
+        // Frequency 2 is exclusive - nothing else is greenlisted
+        return false;
     }
 
     // At frequency 9, unlock ONLY station (exclusive)
@@ -1865,6 +1932,11 @@ function showInfoBox(content, objectName, isGreenlisted) {
     if (travelState.isTraveling) {
         return;
     }
+
+    // Store current infobox state for updating when frequency changes
+    currentInfoBoxState.objectName = objectName;
+    currentInfoBoxState.isGreenlisted = isGreenlisted;
+    currentInfoBoxState.content = content;
     
     const infoBox = document.getElementById('object-info-box');
     const contentDiv = document.getElementById('info-box-content');
@@ -1902,7 +1974,9 @@ function showInfoBox(content, objectName, isGreenlisted) {
         infoBox.classList.add('show');
 
         // Show travel button for all objects, but disable if not greenlisted or if it's the current location
-        travelButton.style.display = 'block';
+        // Hide travel button for Crown and Root
+        const isCrownOrRoot = objectName && (objectName.toUpperCase() === 'CROWN' || objectName.toUpperCase() === 'ROOT');
+        travelButton.style.display = isCrownOrRoot ? 'none' : 'block';
         const displayName = objectName.toUpperCase();
         travelButton.textContent = `VISIT ${displayName}`;
 
@@ -1926,6 +2000,20 @@ function showInfoBox(content, objectName, isGreenlisted) {
     }
 }
 
+// Update currently open infobox when frequency changes
+function updateCurrentInfoBox() {
+    const infoBox = document.getElementById('object-info-box');
+
+    // Only update if infobox is currently open and has stored state
+    if (infoBox && infoBox.classList.contains('show') &&
+        currentInfoBoxState.objectName && currentInfoBoxState.content !== null) {
+
+        // Re-run showInfoBox with the stored content and object info
+        // This will refresh the visit availability based on new frequency
+        showInfoBox(currentInfoBoxState.content, currentInfoBoxState.objectName, currentInfoBoxState.isGreenlisted);
+    }
+}
+
 // Hide info box
 function hideInfoBox() {
     const infoBox = document.getElementById('object-info-box');
@@ -1936,6 +2024,10 @@ function hideInfoBox() {
         if (errorElement) {
             errorElement.remove();
         }
+        // Clear current infobox state
+        currentInfoBoxState.objectName = null;
+        currentInfoBoxState.isGreenlisted = null;
+        currentInfoBoxState.content = null;
     }
 }
 
@@ -2247,7 +2339,13 @@ function startTravel(destinationName) {
     travelState.startPos = startPos.clone();
     travelState.endPos = endPos.clone();
     travelState.destinationName = destinationName;
-    
+
+    // Advance NPCs immediately so they travel simultaneously with player
+    if (npcManager) {
+        console.log('🚀 Advancing NPCs simultaneously with player travel start');
+        npcManager.advanceAllTurnsSimultaneously();
+    }
+
     // Show travel indicator
     const travelIndicator = document.getElementById('travel-indicator');
     if (travelIndicator) {
@@ -3166,9 +3264,15 @@ function renderExploreContent() {
             createBuySellButton('body', 'BODY', 1000, exploreContent);
         }
         
-        // Special handling for MOON - add buy/sell spirit button
-        if (currentLocation.toUpperCase() === 'MOON') {
+        // Special handling for MOON - add buy/sell spirit button and omega interface
+        if (currentLocation.toUpperCase() === 'MOON' || (window.sceneManager && window.sceneManager.allObjects.find(obj => obj.name === currentLocation.toUpperCase() && obj.infoboxContent && obj.infoboxContent.includes('Omega weapon platform')))) {
             createBuySellButton('spirit', 'SPIRIT', 1000, exploreContent);
+
+            // Add omega interface only if omega has been deployed (moon transformed)
+            const moonObject = window.sceneManager.allObjects.find(obj => obj.name === currentLocation.toUpperCase());
+            if (moonObject && moonObject.name !== 'MOON') {
+                createMoonOmegaInterface(exploreContent, moonObject);
+            }
         }
         
         // Special handling for MARS - add buy/sell soul button
@@ -3184,6 +3288,12 @@ function renderExploreContent() {
         // Special handling for SATURN - add pledge soul button
         if (currentLocation.toUpperCase() === 'SATURN' || currentLocation.toLowerCase() === 'saturn') {
             createPledgeSoulButton(exploreContent, currentObject);
+        }
+
+        // Special handling for SUPERNOVA - add free gift button and crafting
+        if (currentLocation.toUpperCase() === 'SUPERNOVA' || currentLocation.toLowerCase() === 'supernova') {
+            createSupernovaFreeGiftButton(exploreContent, currentObject);
+            createSupernovaCraftingButton(exploreContent, currentObject);
         }
 
         // Special handling for STATION - sacred knowledge revelation
@@ -3224,6 +3334,13 @@ function renderExploreContent() {
             createUranusArchonCraftingSection(exploreContent, currentObject);
         }
 
+        // Special handling for MILKY WAY - add crafting stations
+        if (currentLocation.toUpperCase() === 'MILKY WAY' || currentLocation.toLowerCase() === 'milky way') {
+            createMilkyWayAlphaCraftingSection(exploreContent, currentObject);
+            createMilkyWayBetaCraftingSection(exploreContent, currentObject);
+            createMilkyWayGammaCraftingSection(exploreContent, currentObject);
+        }
+
         // Special handling for BLACK CUBE - add sacrifice button
         if (currentLocation.toUpperCase() === 'BLACK CUBE' || currentLocation.toLowerCase() === 'black cube') {
             createBlackCubeSacrificeButton(exploreContent, currentObject);
@@ -3248,6 +3365,11 @@ function renderExploreContent() {
         if (currentLocation.toUpperCase() === 'MONOLITH' || currentLocation.toLowerCase() === 'monolith') {
             createMonolithButton(exploreContent, currentObject);
         }
+
+        // Special handling for ANDROMEDA - add transmutation button
+        if (currentLocation.toUpperCase() === 'ANDROMEDA' || currentLocation.toLowerCase() === 'andromeda') {
+            createAndromedaTransmutationButton(exploreContent, currentObject);
+        }
     } else if (currentObject) {
         // Special handling for PLUTO (when it doesn't have exploreContent)
         if (currentLocation.toUpperCase() === 'PLUTO' || currentLocation.toLowerCase() === 'pluto') {
@@ -3268,6 +3390,26 @@ function renderExploreContent() {
             createUranusMerchantCraftingSection(exploreContent, currentObject);
             createUranusArmyCraftingSection(exploreContent, currentObject);
             createUranusArchonCraftingSection(exploreContent, currentObject);
+        }
+        // Special handling for MILKY WAY (when it doesn't have exploreContent)
+        else if (currentLocation.toUpperCase() === 'MILKY WAY' || currentLocation.toLowerCase() === 'milky way') {
+            createMilkyWayAlphaCraftingSection(exploreContent, currentObject);
+            createMilkyWayBetaCraftingSection(exploreContent, currentObject);
+            createMilkyWayGammaCraftingSection(exploreContent, currentObject);
+        }
+        // Special handling for LARGE MAGELLANIC CLOUD - add time crafting
+        else if (currentLocation.toUpperCase() === 'LARGE MAGELLANIC CLOUD' || currentLocation.toLowerCase() === 'large magellanic cloud') {
+            createLargeMagellanicCloudPastCraftingSection(exploreContent, currentObject);
+            createLargeMagellanicCloudPresentCraftingSection(exploreContent, currentObject);
+            createLargeMagellanicCloudFutureCraftingSection(exploreContent, currentObject);
+        }
+        // Special handling for transformed moon (renamed with omega interface)
+        else if (window.sceneManager && window.sceneManager.allObjects.find(obj => obj.name === currentLocation.toUpperCase() && obj.infoboxContent && obj.infoboxContent.includes('Omega weapon platform'))) {
+            // Add omega interface (moon is already transformed, so interface should show)
+            const moonObject = window.sceneManager.allObjects.find(obj => obj.name === currentLocation.toUpperCase());
+            if (moonObject) {
+                createMoonOmegaInterface(exploreContent, moonObject);
+            }
         } else {
             // Fallback placeholder for other objects
             const locationName = currentLocation.toUpperCase();
@@ -3572,6 +3714,218 @@ function createPledgeSoulButton(parentElement, saturnObject) {
         }
     });
     
+    section.appendChild(button);
+    parentElement.appendChild(section);
+}
+
+// Helper function to create Supernova free gift button
+function createSupernovaFreeGiftButton(parentElement, supernovaObject) {
+    const section = document.createElement('div');
+    section.style.marginTop = '1rem';
+    section.style.paddingTop = '1rem';
+    section.style.borderTop = '1px solid rgba(196, 213, 188, 0.2)';
+
+    const button = document.createElement('button');
+    button.textContent = 'FREE GIFT';
+
+    // Check if gift already claimed this turn
+    const giftAlreadyClaimed = window.tradingGame && window.tradingGame.supernovaGiftClaimedThisTurn;
+    button.disabled = giftAlreadyClaimed;
+
+    button.style.width = '100%';
+    button.style.padding = '0.75rem';
+    button.style.fontFamily = 'var(--font-primary)';
+    button.style.fontWeight = '700';
+    button.style.fontSize = '0.625rem';
+    button.style.textTransform = 'uppercase';
+    button.style.letterSpacing = '0.05em';
+    button.style.color = 'var(--color--foreground)';
+    button.style.backgroundColor = giftAlreadyClaimed ? 'rgba(196, 213, 188, 0.05)' : 'rgba(196, 213, 188, 0.1)';
+    button.style.border = '1px solid rgba(196, 213, 188, 0.3)';
+    button.style.borderRadius = '4px';
+    button.style.cursor = giftAlreadyClaimed ? 'not-allowed' : 'pointer';
+    button.style.transition = 'all 0.2s';
+
+    // Show status text
+    if (giftAlreadyClaimed) {
+        button.textContent = 'GIFT CLAIMED THIS TURN';
+    }
+
+    // Hover effects
+    button.addEventListener('mouseenter', () => {
+        if (!button.disabled) {
+            button.style.backgroundColor = 'rgba(196, 213, 188, 0.2)';
+        }
+    });
+    button.addEventListener('mouseleave', () => {
+        if (!button.disabled) {
+            button.style.backgroundColor = 'rgba(196, 213, 188, 0.1)';
+        }
+    });
+
+    // Click handler
+    button.addEventListener('click', () => {
+        if (window.inventoryManager && window.tradingGame && !window.tradingGame.supernovaGiftClaimedThisTurn) {
+            // Mark gift as claimed this turn
+            window.tradingGame.supernovaGiftClaimedThisTurn = true;
+
+            // Get a random commodity gift
+            const randomCommodity = window.inventoryManager.getRandomSupernovaGift();
+
+            // Add the commodity to trading game
+            const success = window.tradingGame.addCommodity(randomCommodity, 1);
+
+            if (success) {
+                const commodityName = randomCommodity.charAt(0).toUpperCase() + randomCommodity.slice(1);
+
+                // Update button state
+                button.disabled = true;
+                button.textContent = 'GIFT CLAIMED THIS TURN';
+                button.style.backgroundColor = 'rgba(196, 213, 188, 0.05)';
+                button.style.cursor = 'not-allowed';
+
+                // Show feedback message
+                const message = document.createElement('div');
+                message.textContent = `Received: ${itemName}`;
+                message.style.color = 'var(--color--foreground)';
+                message.style.fontFamily = 'var(--font-primary)';
+                message.style.fontSize = '0.75rem';
+                message.style.textAlign = 'center';
+                message.style.marginTop = '0.5rem';
+                message.style.padding = '0.5rem';
+                message.style.backgroundColor = 'rgba(196, 213, 188, 0.1)';
+                message.style.borderRadius = '4px';
+
+                // Remove message after 3 seconds
+                section.appendChild(message);
+                setTimeout(() => {
+                    if (message.parentNode) {
+                        message.parentNode.removeChild(message);
+                    }
+                }, 3000);
+
+                // Update inventory panel if open
+                if (window.updateInventoryPanel) {
+                    window.updateInventoryPanel();
+                }
+            }
+        }
+    });
+
+    section.appendChild(button);
+    parentElement.appendChild(section);
+}
+
+// Helper function to create Supernova crafting button
+function createSupernovaCraftingButton(parentElement, supernovaObject) {
+    const section = document.createElement('div');
+    section.style.marginTop = '1rem';
+    section.style.paddingTop = '1rem';
+    section.style.borderTop = '1px solid rgba(196, 213, 188, 0.2)';
+
+    // Requirements display
+    const requirementsDiv = document.createElement('div');
+    requirementsDiv.style.fontSize = '0.8rem';
+    requirementsDiv.style.color = 'var(--color--foreground)';
+    requirementsDiv.style.marginBottom = '0.5rem';
+    requirementsDiv.style.textAlign = 'center';
+
+    requirementsDiv.innerHTML = `
+        <div>Body + Soul + Spirit</div>
+    `;
+
+    const button = document.createElement('button');
+    button.textContent = 'GENERATE HUMAN FORM';
+
+    // Disable button if missing requirements
+    const hasBody = window.inventoryManager && window.inventoryManager.hasItem('body');
+    const hasSoul = window.inventoryManager && window.inventoryManager.hasItem('soul');
+    const hasSpirit = window.inventoryManager && window.inventoryManager.hasItem('spirit');
+    const canCraft = hasBody && hasSoul && hasSpirit;
+    button.disabled = !canCraft;
+
+    button.style.width = '100%';
+    button.style.padding = '0.75rem';
+    button.style.fontFamily = 'var(--font-primary)';
+    button.style.fontWeight = '700';
+    button.style.fontSize = '0.625rem';
+    button.style.textTransform = 'uppercase';
+    button.style.letterSpacing = '0.05em';
+    button.style.color = 'var(--color--foreground)';
+    button.style.backgroundColor = canCraft ? 'rgba(196, 213, 188, 0.1)' : 'rgba(100, 100, 100, 0.1)';
+    button.style.border = '1px solid rgba(196, 213, 188, 0.3)';
+    button.style.borderRadius = '4px';
+    button.style.cursor = canCraft ? 'pointer' : 'not-allowed';
+    button.style.transition = 'all 0.2s';
+
+    // Hover effects
+    button.addEventListener('mouseenter', () => {
+        if (canCraft) {
+            button.style.backgroundColor = 'rgba(196, 213, 188, 0.2)';
+        }
+    });
+    button.addEventListener('mouseleave', () => {
+        if (canCraft) {
+            button.style.backgroundColor = 'rgba(196, 213, 188, 0.1)';
+        }
+    });
+
+    // Click handler
+    button.addEventListener('click', () => {
+        if (canCraft && window.inventoryManager) {
+            // Remove ingredients
+            window.inventoryManager.removeItem('body', 1);
+            window.inventoryManager.removeItem('soul', 1);
+            window.inventoryManager.removeItem('spirit', 1);
+
+            // Randomly choose man or woman
+            const result = Math.random() < 0.5 ? 'man' : 'woman';
+            const success = window.inventoryManager.addItem(result, 1);
+
+            if (success) {
+                const itemDef = window.inventoryManager.itemDefinitions[result];
+                const itemName = itemDef ? itemDef.name : result;
+
+                // Update button state and requirements
+                button.disabled = true;
+                button.textContent = 'GENERATED';
+                button.style.backgroundColor = 'rgba(196, 213, 188, 0.05)';
+                button.style.cursor = 'not-allowed';
+
+                // Update requirements display
+                requirementsDiv.innerHTML = `
+                    <div>Body + Soul + Spirit</div>
+                `;
+
+                // Show feedback message
+                const message = document.createElement('div');
+                message.textContent = `Created: ${itemName}`;
+                message.style.color = 'var(--color--foreground)';
+                message.style.fontFamily = 'var(--font-primary)';
+                message.style.fontSize = '0.75rem';
+                message.style.textAlign = 'center';
+                message.style.marginTop = '0.5rem';
+                message.style.padding = '0.5rem';
+                message.style.backgroundColor = 'rgba(196, 213, 188, 0.1)';
+                message.style.borderRadius = '4px';
+
+                // Remove message after 3 seconds
+                section.appendChild(message);
+                setTimeout(() => {
+                    if (message.parentNode) {
+                        message.parentNode.removeChild(message);
+                    }
+                }, 3000);
+
+                // Update inventory panel if open
+                if (window.updateInventoryPanel) {
+                    window.updateInventoryPanel();
+                }
+            }
+        }
+    });
+
+    section.appendChild(requirementsDiv);
     section.appendChild(button);
     parentElement.appendChild(section);
 }
@@ -3912,6 +4266,230 @@ function createNeptunePartyButton(parentElement, neptuneObject) {
         }, 200);
     });
     
+    section.appendChild(button);
+    parentElement.appendChild(section);
+}
+
+// Helper function to create Atlantis party button
+function createAtlantisPartyButton(parentElement, atlantisObject) {
+    // Initialize party count if not exists
+    if (!atlantisObject.partyCount) {
+        atlantisObject.partyCount = 0;
+    }
+
+    const section = document.createElement('div');
+    section.style.marginTop = '1rem';
+    section.style.paddingTop = '1rem';
+    section.style.borderTop = '1px solid rgba(196, 213, 188, 0.2)';
+
+    // If already partied 5 times, show final message
+    if (atlantisObject.partyCount >= 5) {
+        atlantisObject.exploreContent = 'You cannot party any harder.';
+        const contentElement = document.createElement('p');
+        contentElement.textContent = atlantisObject.exploreContent;
+        contentElement.style.color = 'var(--color--foreground)';
+        contentElement.style.opacity = '0.7';
+        contentElement.style.padding = '1rem';
+        section.appendChild(contentElement);
+        parentElement.appendChild(section);
+        return;
+    }
+
+    // Function to update button state based on money
+    const updateButtonState = () => {
+        const hasMoney = tradingGame && tradingGame.money >= 100;
+        button.disabled = !hasMoney || atlantisObject.partyCount >= 5;
+        button.style.backgroundColor = (hasMoney && atlantisObject.partyCount < 5) ? 'rgba(196, 213, 188, 0.1)' : 'rgba(196, 213, 188, 0.05)';
+        button.style.cursor = (hasMoney && atlantisObject.partyCount < 5) ? 'pointer' : 'not-allowed';
+        button.style.opacity = (hasMoney && atlantisObject.partyCount < 5) ? '1' : '0.5';
+    };
+
+    const button = document.createElement('button');
+    button.textContent = 'PARTY';
+    button.style.width = '100%';
+    button.style.padding = '0.75rem';
+    button.style.fontFamily = 'var(--font-primary)';
+    button.style.fontWeight = '700';
+    button.style.fontSize = '0.625rem';
+    button.style.textTransform = 'uppercase';
+    button.style.letterSpacing = '0.05em';
+    button.style.color = 'var(--color--foreground)';
+    button.style.border = '1px solid rgba(196, 213, 188, 0.3)';
+    button.style.borderRadius = '4px';
+    button.style.transition = 'all 0.2s';
+
+    // Initial button state
+    updateButtonState();
+
+    // Hover effects
+    button.addEventListener('mouseenter', () => {
+        if (!button.disabled) {
+            button.style.backgroundColor = 'rgba(196, 213, 188, 0.2)';
+        }
+    });
+    button.addEventListener('mouseleave', () => {
+        updateButtonState();
+    });
+
+    // Click handler
+    button.addEventListener('click', () => {
+        if (atlantisObject.partyCount >= 5) return;
+
+        // Check if still has $100
+        const currentMoney = tradingGame && tradingGame.money;
+        if (!currentMoney || currentMoney < 100) {
+            updateButtonState();
+            return;
+        }
+
+        // Deduct $100
+        tradingGame.money -= 100;
+        atlantisObject.partyCount++;
+
+        // Create confetti animation
+        createConfetti();
+
+        // If this was the 5th party, add Aura and show message
+        if (atlantisObject.partyCount >= 5) {
+            // Add 1 Aura to commodities
+            if (tradingGame) {
+                tradingGame.commodities['aura'] = (tradingGame.commodities['aura'] || 0) + 1;
+            }
+
+            // Update explore content
+            atlantisObject.exploreContent = 'You cannot party any harder.';
+
+            // Show temporary message that fades away
+            const tempMessage = document.createElement('p');
+            tempMessage.textContent = 'You have been gifted 1 Aura.';
+            tempMessage.style.color = 'var(--color--foreground)';
+            tempMessage.style.opacity = '1';
+            tempMessage.style.padding = '1rem';
+            tempMessage.style.transition = 'opacity 3s ease-out';
+            section.appendChild(tempMessage);
+
+            // Fade out after 3 seconds
+            setTimeout(() => {
+                tempMessage.style.opacity = '0';
+                setTimeout(() => {
+                    if (tempMessage.parentElement) {
+                        tempMessage.remove();
+                    }
+                }, 3000);
+            }, 2000);
+
+            // Disable button
+            button.disabled = true;
+            button.style.opacity = '0.5';
+            button.style.cursor = 'not-allowed';
+            button.style.backgroundColor = 'rgba(196, 213, 188, 0.05)';
+        }
+
+        // Update button state
+        updateButtonState();
+
+        // Update UI
+        if (window.renderInventory) {
+            window.renderInventory();
+        }
+        if (window.updateExplorePanel) {
+            window.updateExplorePanel();
+        }
+
+        // Visual feedback
+        button.style.backgroundColor = 'rgba(196, 213, 188, 0.3)';
+        setTimeout(() => {
+            updateButtonState();
+        }, 200);
+    });
+
+    section.appendChild(button);
+    parentElement.appendChild(section);
+}
+
+// Helper function to create Andromeda transmutation button
+function createAndromedaTransmutationButton(parentElement, andromedaObject) {
+    const section = document.createElement('div');
+    section.style.marginTop = '1rem';
+    section.style.paddingTop = '1rem';
+    section.style.borderTop = '1px solid rgba(196, 213, 188, 0.2)';
+
+    // Transmutation button
+    const button = document.createElement('button');
+    button.textContent = 'Transmute 3 Moments of Entropy to an Instant of Aura';
+    button.style.width = '100%';
+    button.style.padding = '0.75rem';
+    button.style.fontFamily = 'var(--font-primary)';
+    button.style.fontWeight = '700';
+    button.style.fontSize = '0.625rem';
+    button.style.textTransform = 'uppercase';
+    button.style.letterSpacing = '0.05em';
+    button.style.color = 'var(--color--foreground)';
+    button.style.border = '1px solid rgba(196, 213, 188, 0.3)';
+    button.style.borderRadius = '4px';
+    button.style.transition = 'all 0.2s';
+
+    // Function to update button state
+    const updateButtonState = () => {
+        const entropyCount = tradingGame && tradingGame.commodities ? (tradingGame.commodities['entropy'] || 0) : 0;
+        const hasEnoughEntropy = entropyCount >= 3;
+        button.disabled = !hasEnoughEntropy;
+        button.style.backgroundColor = hasEnoughEntropy ? 'rgba(196, 213, 188, 0.1)' : 'rgba(196, 213, 188, 0.05)';
+        button.style.cursor = hasEnoughEntropy ? 'pointer' : 'not-allowed';
+        button.style.opacity = hasEnoughEntropy ? '1' : '0.5';
+    };
+
+    // Initial button state
+    updateButtonState();
+
+    // Hover effects
+    button.addEventListener('mouseenter', () => {
+        if (!button.disabled) {
+            button.style.backgroundColor = 'rgba(196, 213, 188, 0.2)';
+        }
+    });
+    button.addEventListener('mouseleave', () => {
+        updateButtonState();
+    });
+
+    // Click handler
+    button.addEventListener('click', () => {
+        if (button.disabled) return;
+
+        const entropyCount = tradingGame && tradingGame.commodities ? (tradingGame.commodities['entropy'] || 0) : 0;
+        if (entropyCount < 3) {
+            updateButtonState();
+            return;
+        }
+
+        // Consume 3 entropy
+        if (tradingGame && tradingGame.commodities) {
+            tradingGame.commodities['entropy'] = Math.max(0, (tradingGame.commodities['entropy'] || 0) - 3);
+        }
+
+        // Add 1 aura
+        if (tradingGame && tradingGame.commodities) {
+            tradingGame.commodities['aura'] = (tradingGame.commodities['aura'] || 0) + 1;
+        }
+
+        // Update button state
+        updateButtonState();
+
+        // Update UI
+        if (window.renderInventory) {
+            window.renderInventory();
+        }
+        if (window.updateExplorePanel) {
+            window.updateExplorePanel();
+        }
+
+        // Visual feedback
+        button.style.backgroundColor = 'rgba(196, 213, 188, 0.3)';
+        setTimeout(() => {
+            updateButtonState();
+        }, 200);
+    });
+
     section.appendChild(button);
     parentElement.appendChild(section);
 }
@@ -4640,6 +5218,783 @@ function createPleiadesRobotCraftingSection(parentElement, pleiadesObject) {
 
         // Add Baby
         window.inventoryManager.addItem('baby', 1);
+
+        // Update displays
+        updateInventoryDisplay();
+        checkRequirements();
+
+        // Refresh explore panel (updates inventory and crafting requirements)
+        if (window.updateExplorePanel) {
+            window.updateExplorePanel();
+        }
+
+        // Visual feedback
+        buildButton.style.backgroundColor = 'rgba(196, 213, 188, 0.3)';
+        setTimeout(() => {
+            checkRequirements();
+        }, 200);
+    });
+
+    // Hover effects
+    buildButton.addEventListener('mouseenter', () => {
+        if (!buildButton.disabled) {
+            buildButton.style.backgroundColor = 'rgba(196, 213, 188, 0.25)';
+        }
+    });
+
+    buildButton.addEventListener('mouseleave', () => {
+        if (!buildButton.disabled) {
+            checkRequirements();
+        }
+    });
+
+    craftingSection.appendChild(buildButton);
+    parentElement.appendChild(craftingSection);
+}
+
+// Helper function to create Large Magellanic Cloud Past crafting section (entropy + alpha + iron = past)
+function createLargeMagellanicCloudPastCraftingSection(parentElement, lmcObject) {
+    const craftingSection = document.createElement('div');
+    craftingSection.style.marginTop = '1rem';
+    craftingSection.style.padding = '1rem';
+    craftingSection.style.backgroundColor = 'rgba(196, 213, 188, 0.05)';
+    craftingSection.style.borderRadius = '4px';
+    craftingSection.style.border = '1px solid rgba(196, 213, 188, 0.1)';
+
+    // Inventory status
+    const inventoryDiv = document.createElement('div');
+    inventoryDiv.style.display = 'flex';
+    inventoryDiv.style.justifyContent = 'space-around';
+    inventoryDiv.style.marginBottom = '1rem';
+    inventoryDiv.style.fontFamily = 'var(--font-primary)';
+    inventoryDiv.style.fontSize = '0.625rem';
+    inventoryDiv.style.color = 'var(--color--foreground)';
+    inventoryDiv.style.opacity = '0.7';
+
+    function updateInventoryDisplay() {
+        inventoryDiv.innerHTML = '';
+        const items = [
+            { name: 'Entropy', id: 'entropy', quantity: window.tradingGame ? window.tradingGame.getCommodityQuantity('entropy') : 0 },
+            { name: 'Alpha', id: 'alpha', quantity: window.inventoryManager ? window.inventoryManager.getItem('alpha')?.quantity || 0 : 0 },
+            { name: 'Iron', id: 'iron', quantity: window.tradingGame ? window.tradingGame.getCommodityQuantity('iron') : 0 }
+        ];
+
+        items.forEach(item => {
+            const itemDiv = document.createElement('div');
+            itemDiv.style.textAlign = 'center';
+            itemDiv.innerHTML = `
+                <div style="font-weight: 600;">${item.name}</div>
+                <div>${item.quantity}</div>
+            `;
+            inventoryDiv.appendChild(itemDiv);
+        });
+    }
+
+    updateInventoryDisplay();
+    craftingSection.appendChild(inventoryDiv);
+
+    // Build button
+    const buildButton = document.createElement('button');
+    buildButton.textContent = 'FORGE PAST';
+    buildButton.style.width = '100%';
+    buildButton.style.padding = '0.75rem';
+    buildButton.style.fontFamily = 'var(--font-primary)';
+    buildButton.style.fontWeight = '700';
+    buildButton.style.fontSize = '0.625rem';
+    buildButton.style.textTransform = 'uppercase';
+    buildButton.style.letterSpacing = '0.05em';
+    buildButton.style.color = 'var(--color--foreground)';
+    buildButton.style.backgroundColor = 'rgba(196, 213, 188, 0.1)';
+    buildButton.style.border = '1px solid rgba(196, 213, 188, 0.3)';
+    buildButton.style.borderRadius = '4px';
+    buildButton.style.cursor = 'pointer';
+    buildButton.style.transition = 'all 0.2s';
+
+    // Check if player has required items
+    function checkRequirements() {
+        const hasEntropy = window.tradingGame && window.tradingGame.getCommodityQuantity('entropy') >= 1;
+        const hasAlpha = window.inventoryManager && window.inventoryManager.hasItem('alpha', 1);
+        const hasIron = window.tradingGame && window.tradingGame.getCommodityQuantity('iron') >= 1;
+
+        const canCraft = hasEntropy && hasAlpha && hasIron;
+        buildButton.disabled = !canCraft;
+
+        if (canCraft) {
+            buildButton.style.backgroundColor = 'rgba(196, 213, 188, 0.2)';
+            buildButton.style.cursor = 'pointer';
+            buildButton.style.opacity = '1';
+        } else {
+            buildButton.style.backgroundColor = 'rgba(196, 213, 188, 0.1)';
+            buildButton.style.cursor = 'not-allowed';
+            buildButton.style.opacity = '0.5';
+        }
+    }
+
+    checkRequirements();
+
+    // Build button click handler
+    buildButton.addEventListener('click', () => {
+        if (buildButton.disabled) return;
+
+        // Consume items
+        if (window.tradingGame) {
+            window.tradingGame.commodities['entropy'] -= 1;
+            window.tradingGame.commodities['iron'] -= 1;
+        }
+        if (window.inventoryManager) {
+            window.inventoryManager.removeItem('alpha', 1);
+        }
+
+        // Add Past
+        if (window.inventoryManager) {
+            window.inventoryManager.addItem('past', 1);
+        }
+
+        // Update displays
+        updateInventoryDisplay();
+        checkRequirements();
+
+        // Refresh explore panel (updates inventory and crafting requirements)
+        if (window.updateExplorePanel) {
+            window.updateExplorePanel();
+        }
+
+        // Visual feedback
+        buildButton.style.backgroundColor = 'rgba(196, 213, 188, 0.3)';
+        setTimeout(() => {
+            checkRequirements();
+        }, 200);
+    });
+
+    // Hover effects
+    buildButton.addEventListener('mouseenter', () => {
+        if (!buildButton.disabled) {
+            buildButton.style.backgroundColor = 'rgba(196, 213, 188, 0.25)';
+        }
+    });
+
+    buildButton.addEventListener('mouseleave', () => {
+        if (!buildButton.disabled) {
+            checkRequirements();
+        }
+    });
+
+    craftingSection.appendChild(buildButton);
+    parentElement.appendChild(craftingSection);
+}
+
+// Helper function to create Large Magellanic Cloud Present crafting section (entropy + beta + gold = present)
+function createLargeMagellanicCloudPresentCraftingSection(parentElement, lmcObject) {
+    const craftingSection = document.createElement('div');
+    craftingSection.style.marginTop = '1rem';
+    craftingSection.style.padding = '1rem';
+    craftingSection.style.backgroundColor = 'rgba(196, 213, 188, 0.05)';
+    craftingSection.style.borderRadius = '4px';
+    craftingSection.style.border = '1px solid rgba(196, 213, 188, 0.1)';
+
+    // Inventory status
+    const inventoryDiv = document.createElement('div');
+    inventoryDiv.style.display = 'flex';
+    inventoryDiv.style.justifyContent = 'space-around';
+    inventoryDiv.style.marginBottom = '1rem';
+    inventoryDiv.style.fontFamily = 'var(--font-primary)';
+    inventoryDiv.style.fontSize = '0.625rem';
+    inventoryDiv.style.color = 'var(--color--foreground)';
+    inventoryDiv.style.opacity = '0.7';
+
+    function updateInventoryDisplay() {
+        inventoryDiv.innerHTML = '';
+        const items = [
+            { name: 'Entropy', id: 'entropy', quantity: window.tradingGame ? window.tradingGame.getCommodityQuantity('entropy') : 0 },
+            { name: 'Beta', id: 'beta', quantity: window.inventoryManager ? window.inventoryManager.getItem('beta')?.quantity || 0 : 0 },
+            { name: 'Gold', id: 'gold', quantity: window.tradingGame ? window.tradingGame.getCommodityQuantity('gold') : 0 }
+        ];
+
+        items.forEach(item => {
+            const itemDiv = document.createElement('div');
+            itemDiv.style.textAlign = 'center';
+            itemDiv.innerHTML = `
+                <div style="font-weight: 600;">${item.name}</div>
+                <div>${item.quantity}</div>
+            `;
+            inventoryDiv.appendChild(itemDiv);
+        });
+    }
+
+    updateInventoryDisplay();
+    craftingSection.appendChild(inventoryDiv);
+
+    // Build button
+    const buildButton = document.createElement('button');
+    buildButton.textContent = 'FORGE PRESENT';
+    buildButton.style.width = '100%';
+    buildButton.style.padding = '0.75rem';
+    buildButton.style.fontFamily = 'var(--font-primary)';
+    buildButton.style.fontWeight = '700';
+    buildButton.style.fontSize = '0.625rem';
+    buildButton.style.textTransform = 'uppercase';
+    buildButton.style.letterSpacing = '0.05em';
+    buildButton.style.color = 'var(--color--foreground)';
+    buildButton.style.backgroundColor = 'rgba(196, 213, 188, 0.1)';
+    buildButton.style.border = '1px solid rgba(196, 213, 188, 0.3)';
+    buildButton.style.borderRadius = '4px';
+    buildButton.style.cursor = 'pointer';
+    buildButton.style.transition = 'all 0.2s';
+
+    // Check if player has required items
+    function checkRequirements() {
+        const hasEntropy = window.tradingGame && window.tradingGame.getCommodityQuantity('entropy') >= 1;
+        const hasBeta = window.inventoryManager && window.inventoryManager.hasItem('beta', 1);
+        const hasGold = window.tradingGame && window.tradingGame.getCommodityQuantity('gold') >= 1;
+
+        const canCraft = hasEntropy && hasBeta && hasGold;
+        buildButton.disabled = !canCraft;
+
+        if (canCraft) {
+            buildButton.style.backgroundColor = 'rgba(196, 213, 188, 0.2)';
+            buildButton.style.cursor = 'pointer';
+            buildButton.style.opacity = '1';
+        } else {
+            buildButton.style.backgroundColor = 'rgba(196, 213, 188, 0.1)';
+            buildButton.style.cursor = 'not-allowed';
+            buildButton.style.opacity = '0.5';
+        }
+    }
+
+    checkRequirements();
+
+    // Build button click handler
+    buildButton.addEventListener('click', () => {
+        if (buildButton.disabled) return;
+
+        // Consume items
+        if (window.tradingGame) {
+            window.tradingGame.commodities['entropy'] -= 1;
+            window.tradingGame.commodities['gold'] -= 1;
+        }
+        if (window.inventoryManager) {
+            window.inventoryManager.removeItem('beta', 1);
+        }
+
+        // Add Present
+        if (window.inventoryManager) {
+            window.inventoryManager.addItem('present', 1);
+        }
+
+        // Update displays
+        updateInventoryDisplay();
+        checkRequirements();
+
+        // Refresh explore panel (updates inventory and crafting requirements)
+        if (window.updateExplorePanel) {
+            window.updateExplorePanel();
+        }
+
+        // Visual feedback
+        buildButton.style.backgroundColor = 'rgba(196, 213, 188, 0.3)';
+        setTimeout(() => {
+            checkRequirements();
+        }, 200);
+    });
+
+    // Hover effects
+    buildButton.addEventListener('mouseenter', () => {
+        if (!buildButton.disabled) {
+            buildButton.style.backgroundColor = 'rgba(196, 213, 188, 0.25)';
+        }
+    });
+
+    buildButton.addEventListener('mouseleave', () => {
+        if (!buildButton.disabled) {
+            checkRequirements();
+        }
+    });
+
+    craftingSection.appendChild(buildButton);
+    parentElement.appendChild(craftingSection);
+}
+
+// Helper function to create Large Magellanic Cloud Future crafting section (entropy + gamma + fuel = future)
+function createLargeMagellanicCloudFutureCraftingSection(parentElement, lmcObject) {
+    const craftingSection = document.createElement('div');
+    craftingSection.style.marginTop = '1rem';
+    craftingSection.style.padding = '1rem';
+    craftingSection.style.backgroundColor = 'rgba(196, 213, 188, 0.05)';
+    craftingSection.style.borderRadius = '4px';
+    craftingSection.style.border = '1px solid rgba(196, 213, 188, 0.1)';
+
+    // Inventory status
+    const inventoryDiv = document.createElement('div');
+    inventoryDiv.style.display = 'flex';
+    inventoryDiv.style.justifyContent = 'space-around';
+    inventoryDiv.style.marginBottom = '1rem';
+    inventoryDiv.style.fontFamily = 'var(--font-primary)';
+    inventoryDiv.style.fontSize = '0.625rem';
+    inventoryDiv.style.color = 'var(--color--foreground)';
+    inventoryDiv.style.opacity = '0.7';
+
+    function updateInventoryDisplay() {
+        inventoryDiv.innerHTML = '';
+        const items = [
+            { name: 'Entropy', id: 'entropy', quantity: window.tradingGame ? window.tradingGame.getCommodityQuantity('entropy') : 0 },
+            { name: 'Gamma', id: 'gamma', quantity: window.inventoryManager ? window.inventoryManager.getItem('gamma')?.quantity || 0 : 0 },
+            { name: 'Fuel', id: 'fuel', quantity: window.tradingGame ? window.tradingGame.getCommodityQuantity('fuel') : 0 }
+        ];
+
+        items.forEach(item => {
+            const itemDiv = document.createElement('div');
+            itemDiv.style.textAlign = 'center';
+            itemDiv.innerHTML = `
+                <div style="font-weight: 600;">${item.name}</div>
+                <div>${item.quantity}</div>
+            `;
+            inventoryDiv.appendChild(itemDiv);
+        });
+    }
+
+    updateInventoryDisplay();
+    craftingSection.appendChild(inventoryDiv);
+
+    // Build button
+    const buildButton = document.createElement('button');
+    buildButton.textContent = 'FORGE FUTURE';
+    buildButton.style.width = '100%';
+    buildButton.style.padding = '0.75rem';
+    buildButton.style.fontFamily = 'var(--font-primary)';
+    buildButton.style.fontWeight = '700';
+    buildButton.style.fontSize = '0.625rem';
+    buildButton.style.textTransform = 'uppercase';
+    buildButton.style.letterSpacing = '0.05em';
+    buildButton.style.color = 'var(--color--foreground)';
+    buildButton.style.backgroundColor = 'rgba(196, 213, 188, 0.1)';
+    buildButton.style.border = '1px solid rgba(196, 213, 188, 0.3)';
+    buildButton.style.borderRadius = '4px';
+    buildButton.style.cursor = 'pointer';
+    buildButton.style.transition = 'all 0.2s';
+
+    // Check if player has required items
+    function checkRequirements() {
+        const hasEntropy = window.tradingGame && window.tradingGame.getCommodityQuantity('entropy') >= 1;
+        const hasGamma = window.inventoryManager && window.inventoryManager.hasItem('gamma', 1);
+        const hasFuel = window.tradingGame && window.tradingGame.getCommodityQuantity('fuel') >= 1;
+
+        const canCraft = hasEntropy && hasGamma && hasFuel;
+        buildButton.disabled = !canCraft;
+
+        if (canCraft) {
+            buildButton.style.backgroundColor = 'rgba(196, 213, 188, 0.2)';
+            buildButton.style.cursor = 'pointer';
+            buildButton.style.opacity = '1';
+        } else {
+            buildButton.style.backgroundColor = 'rgba(196, 213, 188, 0.1)';
+            buildButton.style.cursor = 'not-allowed';
+            buildButton.style.opacity = '0.5';
+        }
+    }
+
+    checkRequirements();
+
+    // Build button click handler
+    buildButton.addEventListener('click', () => {
+        if (buildButton.disabled) return;
+
+        // Consume items
+        if (window.tradingGame) {
+            window.tradingGame.commodities['entropy'] -= 1;
+            window.tradingGame.commodities['fuel'] -= 1;
+        }
+        if (window.inventoryManager) {
+            window.inventoryManager.removeItem('gamma', 1);
+        }
+
+        // Add Future
+        if (window.inventoryManager) {
+            window.inventoryManager.addItem('future', 1);
+        }
+
+        // Update displays
+        updateInventoryDisplay();
+        checkRequirements();
+
+        // Refresh explore panel (updates inventory and crafting requirements)
+        if (window.updateExplorePanel) {
+            window.updateExplorePanel();
+        }
+
+        // Visual feedback
+        buildButton.style.backgroundColor = 'rgba(196, 213, 188, 0.3)';
+        setTimeout(() => {
+            checkRequirements();
+        }, 200);
+    });
+
+    // Hover effects
+    buildButton.addEventListener('mouseenter', () => {
+        if (!buildButton.disabled) {
+            buildButton.style.backgroundColor = 'rgba(196, 213, 188, 0.25)';
+        }
+    });
+
+    buildButton.addEventListener('mouseleave', () => {
+        if (!buildButton.disabled) {
+            checkRequirements();
+        }
+    });
+
+    craftingSection.appendChild(buildButton);
+    parentElement.appendChild(craftingSection);
+}
+
+// Helper function to create Milky Way Alpha crafting section
+function createMilkyWayAlphaCraftingSection(parentElement, milkyWayObject) {
+    const craftingSection = document.createElement('div');
+    craftingSection.style.marginTop = '1rem';
+    craftingSection.style.padding = '1rem';
+    craftingSection.style.backgroundColor = 'rgba(196, 213, 188, 0.05)';
+    craftingSection.style.borderRadius = '4px';
+    craftingSection.style.border = '1px solid rgba(196, 213, 188, 0.1)';
+
+    // Inventory status
+    const inventoryDiv = document.createElement('div');
+    inventoryDiv.style.display = 'flex';
+    inventoryDiv.style.justifyContent = 'space-around';
+    inventoryDiv.style.marginBottom = '1rem';
+    inventoryDiv.style.fontFamily = 'var(--font-primary)';
+    inventoryDiv.style.fontSize = '0.625rem';
+    inventoryDiv.style.color = 'var(--color--foreground)';
+    inventoryDiv.style.opacity = '0.7';
+
+    function updateInventoryDisplay() {
+        inventoryDiv.innerHTML = '';
+        const items = [
+            { name: 'Antimatter', id: 'antimatter', quantity: window.tradingGame ? window.tradingGame.getCommodityQuantity('antimatter') : 0 },
+            { name: 'Iron', id: 'iron', quantity: window.tradingGame ? window.tradingGame.getCommodityQuantity('iron') : 0 },
+            { name: 'Robot', id: 'robot', quantity: window.inventoryManager ? window.inventoryManager.getItemQuantity('robot') : 0 }
+        ];
+
+        items.forEach(item => {
+            const itemDiv = document.createElement('div');
+            itemDiv.style.textAlign = 'center';
+            itemDiv.innerHTML = `
+                <div style="font-weight: 600;">${item.name}</div>
+            `;
+            inventoryDiv.appendChild(itemDiv);
+        });
+    }
+
+    updateInventoryDisplay();
+    craftingSection.appendChild(inventoryDiv);
+
+    // Build button
+    const buildButton = document.createElement('button');
+    buildButton.textContent = 'CRAFT ALPHA';
+    buildButton.style.width = '100%';
+    buildButton.style.padding = '0.75rem';
+    buildButton.style.fontFamily = 'var(--font-primary)';
+    buildButton.style.fontWeight = '700';
+    buildButton.style.fontSize = '0.625rem';
+    buildButton.style.textTransform = 'uppercase';
+    buildButton.style.letterSpacing = '0.05em';
+    buildButton.style.color = 'var(--color--foreground)';
+    buildButton.style.backgroundColor = 'rgba(196, 213, 188, 0.1)';
+    buildButton.style.border = '1px solid rgba(196, 213, 188, 0.3)';
+    buildButton.style.borderRadius = '4px';
+    buildButton.style.cursor = 'pointer';
+    buildButton.style.transition = 'all 0.2s';
+
+    // Check if player has required items
+    function checkRequirements() {
+        const hasAntimatter = window.tradingGame && window.tradingGame.getCommodityQuantity('antimatter') >= 1;
+        const hasIron = window.tradingGame && window.tradingGame.getCommodityQuantity('iron') >= 1;
+        const hasRobot = window.inventoryManager && window.inventoryManager.hasItem('robot', 1);
+
+        const canCraft = hasAntimatter && hasIron && hasRobot;
+        buildButton.disabled = !canCraft;
+
+        if (canCraft) {
+            buildButton.style.backgroundColor = 'rgba(196, 213, 188, 0.2)';
+            buildButton.style.cursor = 'pointer';
+            buildButton.style.opacity = '1';
+        } else {
+            buildButton.style.backgroundColor = 'rgba(196, 213, 188, 0.1)';
+            buildButton.style.cursor = 'not-allowed';
+            buildButton.style.opacity = '0.5';
+        }
+    }
+
+    checkRequirements();
+
+    // Build button click handler
+    buildButton.addEventListener('click', () => {
+        if (buildButton.disabled) return;
+
+        // Consume items
+        if (window.tradingGame) {
+            window.tradingGame.commodities['antimatter'] -= 1;
+            window.tradingGame.commodities['iron'] -= 1;
+        }
+        if (window.inventoryManager) {
+            window.inventoryManager.removeItem('robot', 1);
+        }
+
+        // Add Alpha
+        window.inventoryManager.addItem('alpha', 1);
+
+        // Update displays
+        updateInventoryDisplay();
+        checkRequirements();
+
+        // Refresh explore panel (updates inventory and crafting requirements)
+        if (window.updateExplorePanel) {
+            window.updateExplorePanel();
+        }
+
+        // Visual feedback
+        buildButton.style.backgroundColor = 'rgba(196, 213, 188, 0.3)';
+        setTimeout(() => {
+            checkRequirements();
+        }, 200);
+    });
+
+    // Hover effects
+    buildButton.addEventListener('mouseenter', () => {
+        if (!buildButton.disabled) {
+            buildButton.style.backgroundColor = 'rgba(196, 213, 188, 0.25)';
+        }
+    });
+
+    buildButton.addEventListener('mouseleave', () => {
+        if (!buildButton.disabled) {
+            checkRequirements();
+        }
+    });
+
+    craftingSection.appendChild(buildButton);
+    parentElement.appendChild(craftingSection);
+}
+
+// Helper function to create Milky Way Beta crafting section
+function createMilkyWayBetaCraftingSection(parentElement, milkyWayObject) {
+    const craftingSection = document.createElement('div');
+    craftingSection.style.marginTop = '1rem';
+    craftingSection.style.padding = '1rem';
+    craftingSection.style.backgroundColor = 'rgba(196, 213, 188, 0.05)';
+    craftingSection.style.borderRadius = '4px';
+    craftingSection.style.border = '1px solid rgba(196, 213, 188, 0.1)';
+
+    // Inventory status
+    const inventoryDiv = document.createElement('div');
+    inventoryDiv.style.display = 'flex';
+    inventoryDiv.style.justifyContent = 'space-around';
+    inventoryDiv.style.marginBottom = '1rem';
+    inventoryDiv.style.fontFamily = 'var(--font-primary)';
+    inventoryDiv.style.fontSize = '0.625rem';
+    inventoryDiv.style.color = 'var(--color--foreground)';
+    inventoryDiv.style.opacity = '0.7';
+
+    function updateInventoryDisplay() {
+        inventoryDiv.innerHTML = '';
+        const items = [
+            { name: 'Dark Matter', id: 'dark matter', quantity: window.tradingGame ? window.tradingGame.getCommodityQuantity('dark matter') : 0 },
+            { name: 'Gold', id: 'gold', quantity: window.tradingGame ? window.tradingGame.getCommodityQuantity('gold') : 0 },
+            { name: 'Weapon', id: 'weapons', quantity: window.inventoryManager ? window.inventoryManager.getItemQuantity('weapons') : 0 }
+        ];
+
+        items.forEach(item => {
+            const itemDiv = document.createElement('div');
+            itemDiv.style.textAlign = 'center';
+            itemDiv.innerHTML = `
+                <div style="font-weight: 600;">${item.name}</div>
+            `;
+            inventoryDiv.appendChild(itemDiv);
+        });
+    }
+
+    updateInventoryDisplay();
+    craftingSection.appendChild(inventoryDiv);
+
+    // Build button
+    const buildButton = document.createElement('button');
+    buildButton.textContent = 'CRAFT BETA';
+    buildButton.style.width = '100%';
+    buildButton.style.padding = '0.75rem';
+    buildButton.style.fontFamily = 'var(--font-primary)';
+    buildButton.style.fontWeight = '700';
+    buildButton.style.fontSize = '0.625rem';
+    buildButton.style.textTransform = 'uppercase';
+    buildButton.style.letterSpacing = '0.05em';
+    buildButton.style.color = 'var(--color--foreground)';
+    buildButton.style.backgroundColor = 'rgba(196, 213, 188, 0.1)';
+    buildButton.style.border = '1px solid rgba(196, 213, 188, 0.3)';
+    buildButton.style.borderRadius = '4px';
+    buildButton.style.cursor = 'pointer';
+    buildButton.style.transition = 'all 0.2s';
+
+    // Check if player has required items
+    function checkRequirements() {
+        const hasDarkMatter = window.tradingGame && window.tradingGame.getCommodityQuantity('dark matter') >= 1;
+        const hasGold = window.tradingGame && window.tradingGame.getCommodityQuantity('gold') >= 1;
+        const hasWeapon = window.inventoryManager && window.inventoryManager.hasItem('weapons', 1);
+
+        const canCraft = hasDarkMatter && hasGold && hasWeapon;
+        buildButton.disabled = !canCraft;
+
+        if (canCraft) {
+            buildButton.style.backgroundColor = 'rgba(196, 213, 188, 0.2)';
+            buildButton.style.cursor = 'pointer';
+            buildButton.style.opacity = '1';
+        } else {
+            buildButton.style.backgroundColor = 'rgba(196, 213, 188, 0.1)';
+            buildButton.style.cursor = 'not-allowed';
+            buildButton.style.opacity = '0.5';
+        }
+    }
+
+    checkRequirements();
+
+    // Build button click handler
+    buildButton.addEventListener('click', () => {
+        if (buildButton.disabled) return;
+
+        // Consume items
+        if (window.tradingGame) {
+            window.tradingGame.commodities['dark matter'] -= 1;
+            window.tradingGame.commodities['gold'] -= 1;
+        }
+        if (window.inventoryManager) {
+            window.inventoryManager.removeItem('weapons', 1);
+        }
+
+        // Add Beta
+        window.inventoryManager.addItem('beta', 1);
+
+        // Update displays
+        updateInventoryDisplay();
+        checkRequirements();
+
+        // Refresh explore panel (updates inventory and crafting requirements)
+        if (window.updateExplorePanel) {
+            window.updateExplorePanel();
+        }
+
+        // Visual feedback
+        buildButton.style.backgroundColor = 'rgba(196, 213, 188, 0.3)';
+        setTimeout(() => {
+            checkRequirements();
+        }, 200);
+    });
+
+    // Hover effects
+    buildButton.addEventListener('mouseenter', () => {
+        if (!buildButton.disabled) {
+            buildButton.style.backgroundColor = 'rgba(196, 213, 188, 0.25)';
+        }
+    });
+
+    buildButton.addEventListener('mouseleave', () => {
+        if (!buildButton.disabled) {
+            checkRequirements();
+        }
+    });
+
+    craftingSection.appendChild(buildButton);
+    parentElement.appendChild(craftingSection);
+}
+
+// Helper function to create Milky Way Gamma crafting section
+function createMilkyWayGammaCraftingSection(parentElement, milkyWayObject) {
+    const craftingSection = document.createElement('div');
+    craftingSection.style.marginTop = '1rem';
+    craftingSection.style.padding = '1rem';
+    craftingSection.style.backgroundColor = 'rgba(196, 213, 188, 0.05)';
+    craftingSection.style.borderRadius = '4px';
+    craftingSection.style.border = '1px solid rgba(196, 213, 188, 0.1)';
+
+    // Inventory status
+    const inventoryDiv = document.createElement('div');
+    inventoryDiv.style.display = 'flex';
+    inventoryDiv.style.justifyContent = 'space-around';
+    inventoryDiv.style.marginBottom = '1rem';
+    inventoryDiv.style.fontFamily = 'var(--font-primary)';
+    inventoryDiv.style.fontSize = '0.625rem';
+    inventoryDiv.style.color = 'var(--color--foreground)';
+    inventoryDiv.style.opacity = '0.7';
+
+    function updateInventoryDisplay() {
+        inventoryDiv.innerHTML = '';
+        const items = [
+            { name: 'Aura', id: 'aura', quantity: window.tradingGame ? window.tradingGame.getCommodityQuantity('aura') : 0 },
+            { name: 'Army', id: 'army', quantity: window.inventoryManager ? window.inventoryManager.getItemQuantity('army') : 0 },
+            { name: 'Slave', id: 'slaves', quantity: window.tradingGame ? window.tradingGame.getCommodityQuantity('slaves') : 0 }
+        ];
+
+        items.forEach(item => {
+            const itemDiv = document.createElement('div');
+            itemDiv.style.textAlign = 'center';
+            itemDiv.innerHTML = `
+                <div style="font-weight: 600;">${item.name}</div>
+            `;
+            inventoryDiv.appendChild(itemDiv);
+        });
+    }
+
+    updateInventoryDisplay();
+    craftingSection.appendChild(inventoryDiv);
+
+    // Build button
+    const buildButton = document.createElement('button');
+    buildButton.textContent = 'CRAFT GAMMA';
+    buildButton.style.width = '100%';
+    buildButton.style.padding = '0.75rem';
+    buildButton.style.fontFamily = 'var(--font-primary)';
+    buildButton.style.fontWeight = '700';
+    buildButton.style.fontSize = '0.625rem';
+    buildButton.style.textTransform = 'uppercase';
+    buildButton.style.letterSpacing = '0.05em';
+    buildButton.style.color = 'var(--color--foreground)';
+    buildButton.style.backgroundColor = 'rgba(196, 213, 188, 0.1)';
+    buildButton.style.border = '1px solid rgba(196, 213, 188, 0.3)';
+    buildButton.style.borderRadius = '4px';
+    buildButton.style.cursor = 'pointer';
+    buildButton.style.transition = 'all 0.2s';
+
+    // Check if player has required items
+    function checkRequirements() {
+        const hasAura = window.tradingGame && window.tradingGame.getCommodityQuantity('aura') >= 1;
+        const hasArmy = window.inventoryManager && window.inventoryManager.hasItem('army', 1);
+        const hasSlave = window.tradingGame && window.tradingGame.getCommodityQuantity('slaves') >= 1;
+
+        const canCraft = hasAura && hasArmy && hasSlave;
+        buildButton.disabled = !canCraft;
+
+        if (canCraft) {
+            buildButton.style.backgroundColor = 'rgba(196, 213, 188, 0.2)';
+            buildButton.style.cursor = 'pointer';
+            buildButton.style.opacity = '1';
+        } else {
+            buildButton.style.backgroundColor = 'rgba(196, 213, 188, 0.1)';
+            buildButton.style.cursor = 'not-allowed';
+            buildButton.style.opacity = '0.5';
+        }
+    }
+
+    checkRequirements();
+
+    // Build button click handler
+    buildButton.addEventListener('click', () => {
+        if (buildButton.disabled) return;
+
+        // Consume items
+        if (window.tradingGame) {
+            window.tradingGame.commodities['aura'] -= 1;
+            window.tradingGame.commodities['slaves'] -= 1;
+        }
+        if (window.inventoryManager) {
+            window.inventoryManager.removeItem('army', 1);
+        }
+
+        // Add Gamma
+        window.inventoryManager.addItem('gamma', 1);
 
         // Update displays
         updateInventoryDisplay();
@@ -5606,7 +6961,7 @@ function showBorrowSubmenu(mainMenu, gaiaBH1Object) {
 
                 // Award achievement
                 if (window.scoreManager) {
-                    window.scoreManager.addAchievement('Loan Shark');
+                    window.scoreManager.addAchievement('Beggar');
                 }
 
                 // Update UI
@@ -6294,6 +7649,67 @@ function createInventoryItemElement(item, hasShine = false) {
                 }
             }
 
+            // Add deploy button for Alpha, Beta, Gamma (Deploy Omega)
+            if ((item.id === 'alpha' || item.id === 'beta' || item.id === 'gamma') && window.inventoryManager && window.tradingGame) {
+                // Check if player has ALL THREE components
+                const hasAlpha = window.inventoryManager.hasItem('alpha', 1);
+                const hasBeta = window.inventoryManager.hasItem('beta', 1);
+                const hasGamma = window.inventoryManager.hasItem('gamma', 1);
+
+                if (hasAlpha && hasBeta && hasGamma) {
+                    // Create description with deploy button
+                    const descElement = document.createElement('div');
+                    descElement.innerHTML = descriptionText;
+
+                    const deployButton = document.createElement('button');
+                    deployButton.textContent = 'DEPLOY OMEGA';
+                    deployButton.style.width = '100%';
+                    deployButton.style.marginTop = '1rem';
+                    deployButton.style.padding = '0.75rem';
+                    deployButton.style.fontFamily = 'var(--font-primary)';
+                    deployButton.style.fontWeight = '700';
+                    deployButton.style.fontSize = '0.625rem';
+                    deployButton.style.textTransform = 'uppercase';
+                    deployButton.style.letterSpacing = '0.05em';
+                    deployButton.style.color = 'var(--color--foreground)';
+                    deployButton.style.backgroundColor = 'rgba(196, 213, 188, 0.1)';
+                    deployButton.style.border = '1px solid rgba(196, 213, 188, 0.3)';
+                    deployButton.style.borderRadius = '4px';
+                    deployButton.style.cursor = 'pointer';
+                    deployButton.style.transition = 'all 0.2s';
+
+                    deployButton.addEventListener('click', () => {
+                        // Check if player still has all three components
+                        const currentHasAlpha = window.inventoryManager.hasItem('alpha', 1);
+                        const currentHasBeta = window.inventoryManager.hasItem('beta', 1);
+                        const currentHasGamma = window.inventoryManager.hasItem('gamma', 1);
+
+                        if (currentHasAlpha && currentHasBeta && currentHasGamma) {
+                            // Consume all three items
+                            window.inventoryManager.removeItem('alpha', 1);
+                            window.inventoryManager.removeItem('beta', 1);
+                            window.inventoryManager.removeItem('gamma', 1);
+
+                            // Start omega deployment
+                            startOmegaDeployment();
+
+                            // Success - refresh inventory and explore panel, clear description
+                            if (window.renderInventory) {
+                                window.renderInventory();
+                            }
+                            if (window.updateExplorePanel) {
+                                window.updateExplorePanel();
+                            }
+                            inventoryDescription.innerHTML = '';
+                        }
+                    });
+
+                    descElement.appendChild(deployButton);
+                    inventoryDescription.appendChild(descElement);
+                    return;
+                }
+            }
+
             // Add deploy button for merchants
             if (item.id === 'merchant' && window.inventoryManager && window.tradingGame) {
                 const merchantItem = window.inventoryManager.getItem('merchant');
@@ -6492,6 +7908,7 @@ function getCurrentPower() {
 // Make renderInventory and updateExplorePanel available globally for trading UI updates
 window.renderInventory = renderInventory;
 window.updateExplorePanel = updateExplorePanel;
+window.updateCurrentInfoBox = updateCurrentInfoBox;
 
 inventoryToggle.addEventListener('click', () => {
     const isOpening = !inventoryPanel.classList.contains('open');
@@ -6638,6 +8055,8 @@ for (let i = 0; i < 5; i++) {
                 if (window.updateExplorePanel) {
                     window.updateExplorePanel();
                 }
+                // Update any open infobox to reflect new frequency-based availability
+                updateCurrentInfoBox();
             }
         }
     });
@@ -6866,11 +8285,43 @@ achievementsList.style.lineHeight = '1.5';
 function updateScoreDisplay() {
     if (window.scoreManager) {
         scoreValue.textContent = window.scoreManager.getScore().toString();
-        const achievements = window.scoreManager.getAchievements();
-        if (achievements.length === 0) {
+        const allAchievements = window.scoreManager.getAchievements();
+
+        // Define meta-achievement combinations to hide constituent achievements
+        const metaAchievementConstituents = new Set([
+            'prostitute', 'transhumanist', 'martian', // Victim
+            'saturn worshipper', // Vermin (shared)
+            'slaver', 'jew', // Trafficker
+            'puppet', 'beggar', // Snake
+            'snake', 'ancient', // Mogul
+            'satanist', 'pedophile', // Demon
+            // Hellion (saturn worshipper, satanist, ancient - already covered)
+            'archangel', 'astral traveller', // Angel
+            'getaway', // Legend (archangel, getaway, saturn worshipper - already covered)
+            'time traveller', 'dreamer', 'station', // Cosmic
+            // Void (archangel, satanist, jew - already covered)
+            // Nexus (prostitute, beggar, pedophile - already covered)
+            // Eclipse (martian, puppet, getaway - already covered)
+        ]);
+
+        // Filter out constituent achievements if their meta-achievement is earned
+        const metaAchievements = ['Victim', 'Vermin', 'Trafficker', 'Snake', 'Mogul', 'Demon', 'Hellion', 'Angel', 'Legend', 'Cosmic', 'Void', 'Nexus', 'Eclipse'];
+        const hasMetaAchievements = metaAchievements.some(meta => allAchievements.includes(meta));
+
+        let displayAchievements;
+        if (hasMetaAchievements) {
+            // Filter out constituent achievements
+            displayAchievements = allAchievements.filter(achievement =>
+                !metaAchievementConstituents.has(achievement)
+            );
+        } else {
+            displayAchievements = allAchievements;
+        }
+
+        if (displayAchievements.length === 0) {
             achievementsList.textContent = 'None';
         } else {
-            achievementsList.textContent = achievements.join(', ');
+            achievementsList.textContent = displayAchievements.join(', ');
         }
     }
 }
@@ -7042,8 +8493,9 @@ function createMonolithButton(parentElement, monolithObject) {
         const hasBody = window.inventoryManager && window.inventoryManager.hasItem('body', 1);
         const hasSoul = window.inventoryManager && window.inventoryManager.hasItem('soul', 1);
         const hasSpirit = window.inventoryManager && window.inventoryManager.hasItem('spirit', 1);
+        const hasThrone = window.inventoryManager && window.inventoryManager.hasItem('throne', 1);
 
-        return hasEarth && hasFire && hasWind && hasWater && hasBody && hasSoul && hasSpirit;
+        return hasEarth && hasFire && hasWind && hasWater && hasBody && hasSoul && hasSpirit && hasThrone;
     }
 
     // Click handler
@@ -7053,18 +8505,9 @@ function createMonolithButton(parentElement, monolithObject) {
         const hasRequirements = checkMonolithRequirements();
 
         if (hasRequirements) {
-            // TODO: Win condition - implement later
+            // Win condition - show victory screen
             console.log('🎉 MONOLITH: Player has all requirements - WIN condition!');
-            // For now, just show a placeholder message
-            const winMessage = document.createElement('div');
-            winMessage.style.textAlign = 'center';
-            winMessage.style.marginTop = '2rem';
-            winMessage.style.fontFamily = 'var(--font-primary)';
-            winMessage.style.fontSize = '1.5rem';
-            winMessage.style.fontWeight = '700';
-            winMessage.style.color = 'gold';
-            winMessage.textContent = 'CONGRATULATIONS! You have achieved SINGULARITY!';
-            parentElement.appendChild(winMessage);
+            showVictoryScreen(parentElement);
         } else {
             // Game over - reincarnation countdown
             showReincarnationCountdown();
@@ -7078,6 +8521,152 @@ function createMonolithButton(parentElement, monolithObject) {
     });
 
     parentElement.appendChild(monolithButton);
+}
+
+// Function to show victory screen
+function showVictoryScreen(parentElement) {
+    // Clear existing content
+    parentElement.innerHTML = '';
+
+    // Create victory popup overlay
+    const victoryPopup = document.createElement('div');
+    victoryPopup.style.position = 'fixed';
+    victoryPopup.style.top = '0';
+    victoryPopup.style.left = '0';
+    victoryPopup.style.width = '100%';
+    victoryPopup.style.height = '100%';
+    victoryPopup.style.backgroundColor = 'rgba(0, 0, 0, 0.95)';
+    victoryPopup.style.zIndex = '10000';
+    victoryPopup.style.display = 'flex';
+    victoryPopup.style.alignItems = 'center';
+    victoryPopup.style.justifyContent = 'center';
+    victoryPopup.style.flexDirection = 'column';
+    victoryPopup.style.padding = '2rem';
+    victoryPopup.style.boxSizing = 'border-box';
+
+    // Create confetti animation (reuse Neptune party confetti)
+    createRainbowConfetti();
+
+    // Victory banner
+    const banner = document.createElement('div');
+    banner.style.textAlign = 'center';
+    banner.style.marginBottom = '2rem';
+    banner.style.fontFamily = 'var(--font-primary)';
+    banner.style.fontSize = 'clamp(1.5rem, 4vw, 2.5rem)';
+    banner.style.fontWeight = '700';
+    banner.style.color = 'gold';
+    banner.style.textTransform = 'uppercase';
+    banner.style.letterSpacing = '0.1em';
+    banner.style.textShadow = '0 0 20px gold, 0 0 40px gold';
+    banner.style.lineHeight = '1.2';
+    banner.style.maxWidth = '800px';
+    banner.style.background = 'rgba(0, 0, 0, 0.7)';
+    banner.style.padding = '2rem';
+    banner.style.borderRadius = '10px';
+    banner.style.border = '2px solid gold';
+    banner.textContent = 'You have transcended space and time to escape samsara and reignite the singularity.';
+    victoryPopup.appendChild(banner);
+
+    // Achievements section
+    const achievementsSection = document.createElement('div');
+    achievementsSection.style.textAlign = 'center';
+    achievementsSection.style.fontFamily = 'var(--font-primary)';
+    achievementsSection.style.color = 'var(--color--foreground)';
+    achievementsSection.style.maxWidth = '600px';
+    achievementsSection.style.background = 'rgba(20, 20, 20, 0.9)';
+    achievementsSection.style.padding = '1.5rem';
+    achievementsSection.style.borderRadius = '8px';
+    achievementsSection.style.border = '1px solid rgba(196, 213, 188, 0.3)';
+
+    const achievementsTitle = document.createElement('div');
+    achievementsTitle.style.fontSize = '1.2rem';
+    achievementsTitle.style.fontWeight = '700';
+    achievementsTitle.style.marginBottom = '1rem';
+    achievementsTitle.style.textTransform = 'uppercase';
+    achievementsTitle.style.letterSpacing = '0.05em';
+    achievementsTitle.style.color = 'var(--color--foreground)';
+    achievementsTitle.textContent = 'ACHIEVEMENTS UNLOCKED:';
+    achievementsSection.appendChild(achievementsTitle);
+
+    const achievementsList = document.createElement('div');
+    achievementsList.style.fontSize = '0.9rem';
+    achievementsList.style.lineHeight = '1.6';
+    achievementsList.style.opacity = '0.9';
+
+    // Get achievements using the same filtering logic as updateScoreDisplay
+    if (window.scoreManager) {
+        const allAchievements = window.scoreManager.getAchievements();
+
+        // Define meta-achievement combinations to hide constituent achievements
+        const metaAchievementConstituents = new Set([
+            'prostitute', 'transhumanist', 'martian',
+            'saturn worshipper',
+            'slaver', 'jew',
+            'puppet', 'beggar',
+            'snake', 'ancient',
+            'satanist', 'pedophile',
+            'archangel', 'astral traveller',
+            'getaway',
+            'time traveller', 'dreamer', 'station'
+        ]);
+
+        // Filter out constituent achievements if their meta-achievement is earned
+        const metaAchievements = ['Victim', 'Vermin', 'Trafficker', 'Snake', 'Mogul', 'Demon', 'Hellion', 'Angel', 'Legend', 'Cosmic', 'Void', 'Nexus', 'Eclipse'];
+        const hasMetaAchievements = metaAchievements.some(meta => allAchievements.includes(meta));
+
+        let displayAchievements;
+        if (hasMetaAchievements) {
+            displayAchievements = allAchievements.filter(achievement =>
+                !metaAchievementConstituents.has(achievement)
+            );
+        } else {
+            displayAchievements = allAchievements;
+        }
+
+        if (displayAchievements.length === 0) {
+            achievementsList.textContent = 'None';
+        } else {
+            achievementsList.textContent = displayAchievements.join(', ');
+        }
+    } else {
+        achievementsList.textContent = 'None';
+    }
+
+    achievementsSection.appendChild(achievementsList);
+    victoryPopup.appendChild(achievementsSection);
+
+    // Close button (optional - game ends here)
+    const closeButton = document.createElement('button');
+    closeButton.textContent = 'CONTINUE JOURNEY';
+    closeButton.style.marginTop = '2rem';
+    closeButton.style.padding = '1rem 2rem';
+    closeButton.style.fontFamily = 'var(--font-primary)';
+    closeButton.style.fontSize = '0.9rem';
+    closeButton.style.fontWeight = '700';
+    closeButton.style.textTransform = 'uppercase';
+    closeButton.style.letterSpacing = '0.05em';
+    closeButton.style.color = 'var(--color--foreground)';
+    closeButton.style.backgroundColor = 'rgba(196, 213, 188, 0.1)';
+    closeButton.style.border = '1px solid rgba(196, 213, 188, 0.3)';
+    closeButton.style.borderRadius = '4px';
+    closeButton.style.cursor = 'pointer';
+    closeButton.style.transition = 'all 0.2s';
+
+    closeButton.addEventListener('mouseenter', () => {
+        closeButton.style.backgroundColor = 'rgba(196, 213, 188, 0.2)';
+    });
+    closeButton.addEventListener('mouseleave', () => {
+        closeButton.style.backgroundColor = 'rgba(196, 213, 188, 0.1)';
+    });
+
+    closeButton.addEventListener('click', () => {
+        // For now, just reload the game (could add more sophisticated continuation)
+        window.location.reload();
+    });
+
+    victoryPopup.appendChild(closeButton);
+
+    document.body.appendChild(victoryPopup);
 }
 
 // Function to show reincarnation countdown popup
@@ -7155,5 +8744,225 @@ function showReincarnationCountdown() {
             }, 3000);
         }
     }, 1000);
+}
+
+// Omega deployment system
+function startOmegaDeployment() {
+    // Step 1: Get Anunnaki name
+    const anunnakiName = prompt('Enter the name of the Anunnaki:');
+
+    if (!anunnakiName || anunnakiName.trim() === '') {
+        // Handle cancellation - refund the consumed items
+        alert('Omega deployment cancelled - Anunnaki name required');
+        window.inventoryManager.addItem('alpha', 1);
+        window.inventoryManager.addItem('beta', 1);
+        window.inventoryManager.addItem('gamma', 1);
+        return;
+    }
+
+    // Step 2: Rename and transform moon
+    renameAndTransformMoon(anunnakiName.trim());
+
+    // Step 3: Start charging
+    startOmegaCharging();
+}
+
+function renameAndTransformMoon(anunnakiName) {
+    // Find the moon object
+    const moonObject = window.sceneManager.allObjects.find(obj => obj.name === 'MOON');
+    if (moonObject) {
+        // Rename the moon
+        moonObject.name = anunnakiName.toUpperCase();
+
+        // Update the label text
+        if (moonObject.label && moonObject.label.textContent) {
+            moonObject.label.textContent = anunnakiName.toUpperCase();
+        }
+
+        // Transform moon to bright pink sphere
+        if (moonObject.mesh && moonObject.mesh.material) {
+            // Change material to bright pink emissive
+            moonObject.mesh.material.color.setHex(0xff1493); // Deep pink
+            moonObject.mesh.material.emissive.setHex(0xff1493);
+            moonObject.mesh.material.emissiveIntensity = 0.8;
+            moonObject.mesh.material.needsUpdate = true;
+        }
+
+        // Update infobox content
+        moonObject.infoboxContent = `${anunnakiName.toUpperCase()}\n\nThe transformed moon now serves as the Omega weapon platform.`;
+
+        console.log(`🌙 Moon renamed to ${anunnakiName.toUpperCase()} and transformed to bright pink`);
+    }
+}
+
+function startOmegaCharging() {
+    // Initialize omega charging in trading game
+    if (window.tradingGame) {
+        window.tradingGame.omegaCharge = 0;
+        console.log('⚡ Omega charging initiated - 10 turns required');
+    }
+
+    // Update moon explore menu to show charging interface
+    updateMoonOmegaInterface(false, 0);
+}
+
+function updateMoonOmegaInterface(isCharged = false, chargeLevel = 0) {
+    // This will be called to update the moon's explore panel
+    // For now, just refresh the explore panel to trigger the interface update
+    if (window.updateExplorePanel) {
+        window.updateExplorePanel();
+    }
+}
+
+function createMoonOmegaInterface(parentElement, moonObject) {
+    if (!window.tradingGame) return;
+
+    const omegaSection = document.createElement('div');
+    omegaSection.style.marginTop = '1rem';
+    omegaSection.style.padding = '1rem';
+    omegaSection.style.backgroundColor = 'rgba(255, 20, 147, 0.1)'; // Pink background
+    omegaSection.style.borderRadius = '4px';
+    omegaSection.style.border = '1px solid rgba(255, 20, 147, 0.3)';
+    omegaSection.style.textAlign = 'center';
+
+    if (window.tradingGame.omegaCharge >= 10) {
+        // Omega is fully charged - show destruction interface
+        omegaSection.innerHTML = `
+            <div style="color: #ff1493; font-weight: 700; margin-bottom: 1rem;">⚡ OMEGA FULLY CHARGED ⚡</div>
+            <div style="margin-bottom: 1rem; font-size: 0.75rem;">Select target to destroy:</div>
+        `;
+
+        // Create dropdown with destroyable locations
+        const selectElement = document.createElement('select');
+        selectElement.style.width = '100%';
+        selectElement.style.marginBottom = '1rem';
+        selectElement.style.padding = '0.5rem';
+        selectElement.style.fontFamily = 'var(--font-primary)';
+        selectElement.style.backgroundColor = 'rgba(196, 213, 188, 0.1)';
+        selectElement.style.border = '1px solid rgba(196, 213, 188, 0.3)';
+        selectElement.style.borderRadius = '4px';
+        selectElement.style.color = 'var(--color--foreground)';
+
+        // Get all objects with infobox content (except protected ones)
+        const destroyableObjects = window.sceneManager.allObjects.filter(obj =>
+            obj.infoboxContent &&
+            obj.name !== 'MOON' &&
+            obj.name !== moonObject.name && // Don't include the renamed moon
+            obj.name !== 'ROOT' &&
+            obj.name !== 'CROWN' &&
+            obj.name !== 'NUCLEUS' &&
+            obj.name !== 'MONOLITH'
+        );
+
+        // Add default option
+        const defaultOption = document.createElement('option');
+        defaultOption.value = '';
+        defaultOption.textContent = 'Select target...';
+        selectElement.appendChild(defaultOption);
+
+        // Add destroyable locations
+        destroyableObjects.forEach(obj => {
+            const option = document.createElement('option');
+            option.value = obj.name;
+            option.textContent = obj.name;
+            selectElement.appendChild(option);
+        });
+
+        // Destroy button
+        const destroyButton = document.createElement('button');
+        destroyButton.textContent = 'DESTROY TARGET';
+        destroyButton.style.width = '100%';
+        destroyButton.style.padding = '0.75rem';
+        destroyButton.style.fontFamily = 'var(--font-primary)';
+        destroyButton.style.fontWeight = '700';
+        destroyButton.style.fontSize = '0.625rem';
+        destroyButton.style.textTransform = 'uppercase';
+        destroyButton.style.letterSpacing = '0.05em';
+        destroyButton.style.color = 'var(--color--foreground)';
+        destroyButton.style.backgroundColor = 'rgba(255, 20, 147, 0.2)';
+        destroyButton.style.border = '1px solid rgba(255, 20, 147, 0.5)';
+        destroyButton.style.borderRadius = '4px';
+        destroyButton.style.cursor = 'pointer';
+        destroyButton.style.transition = 'all 0.2s';
+
+        destroyButton.addEventListener('click', () => {
+            const targetName = selectElement.value;
+            if (!targetName) {
+                alert('Please select a target to destroy');
+                return;
+            }
+
+            // Find and destroy the target
+            destroyLocation(targetName);
+
+            // Reset omega charge after use
+            window.tradingGame.omegaCharge = 0;
+
+            // Update interface
+            updateMoonOmegaInterface(false, 0);
+        });
+
+        omegaSection.appendChild(selectElement);
+        omegaSection.appendChild(destroyButton);
+
+    } else {
+        // Omega is charging - show progress
+        const progressPercent = (window.tradingGame.omegaCharge / 10) * 100;
+        omegaSection.innerHTML = `
+            <div style="color: #ff1493; font-weight: 700; margin-bottom: 1rem;">⚡ OMEGA CHARGING ⚡</div>
+            <div style="margin-bottom: 1rem; font-size: 0.75rem;">Charge Level: ${window.tradingGame.omegaCharge}/10 turns</div>
+            <div style="width: 100%; height: 20px; background-color: rgba(196, 213, 188, 0.1); border-radius: 10px; margin-bottom: 0.5rem;">
+                <div style="width: ${progressPercent}%; height: 100%; background-color: #ff1493; border-radius: 10px; transition: width 0.3s ease;"></div>
+            </div>
+            <div style="font-size: 0.625rem; opacity: 0.7;">Charging complete in ${10 - window.tradingGame.omegaCharge} turns</div>
+        `;
+    }
+
+    parentElement.appendChild(omegaSection);
+}
+
+function destroyLocation(targetName) {
+    console.log(`💥 Destroying ${targetName} with Omega weapon`);
+
+    // Find the target object
+    const targetObject = window.sceneManager.allObjects.find(obj => obj.name === targetName);
+    if (!targetObject) {
+        console.error(`Target ${targetName} not found`);
+        return;
+    }
+
+    // Create explosion effect (reuse supernova if available, or create simple effect)
+    createExplosionEffect(targetObject.position);
+
+    // Remove from scene
+    window.sceneManager.removeObject(targetName);
+
+    // Remove from greenlist (mark as permanently removed)
+    localStorage.setItem(`${targetName}_removed_from_greenlist`, 'true');
+
+    // Remove any associated NPCs
+    if (window.npcManager) {
+        // Find NPCs associated with this location
+        const locationNpcs = window.npcManager.npcs.filter(npc => npc.homePlanet === targetName);
+        locationNpcs.forEach(npc => {
+            window.npcManager.removeNpc(npc.id);
+            console.log(`💀 ${npc.name} perished with ${targetName}`);
+        });
+    }
+
+    // Remove from trading locations
+    if (window.tradingGame && window.tradingGame.locationPrices[targetName]) {
+        delete window.tradingGame.locationPrices[targetName];
+    }
+
+    console.log(`💥 ${targetName} completely destroyed and removed from the game`);
+}
+
+function createExplosionEffect(position) {
+    // Simple explosion effect - could be enhanced with particle system
+    console.log(`💥 Explosion at ${position}`);
+
+    // For now, just log the effect. Could add visual explosion later
+    // This could reuse the supernova explosion or create a new effect
 }
 

@@ -37,6 +37,12 @@ export class TradingGame {
         this.deployedArmies = 0; // Armies deployed for slave income
         this.deployedArchons = 0; // Archons deployed for money and slave income
 
+        // Omega weapon system
+        this.omegaCharge = 0; // Turns of charging completed (0-10)
+
+        // Supernova gift system
+        this.supernovaGiftClaimedThisTurn = false; // Track if gift has been claimed this turn
+
         // Gaia BH1 Banking System
         this.gaiaBH1Loan = {
             active: false,
@@ -617,6 +623,9 @@ export class TradingGame {
         this.turn++;
         this.currentLocation = newLocation;
 
+        // Reset supernova gift availability for new turn
+        this.supernovaGiftClaimedThisTurn = false;
+
         // Add income from deployed robots ($100 per robot per turn)
         if (this.deployedRobots > 0) {
             this.money += this.deployedRobots * 100;
@@ -674,6 +683,18 @@ export class TradingGame {
             const actualSlavesToAdd = Math.min(slavesToAdd, availableSpace);
             if (actualSlavesToAdd > 0) {
                 this.commodities[COMMODITIES.SLAVES] += actualSlavesToAdd;
+            }
+        }
+
+        // Process Omega weapon charging
+        if (this.omegaCharge >= 0 && this.omegaCharge < 10) {
+            this.omegaCharge++;
+            console.log(`⚡ Omega charge increased to ${this.omegaCharge}/10`);
+
+            // If fully charged, update moon interface
+            if (this.omegaCharge >= 10) {
+                console.log('⚡ Omega fully charged - ready to destroy locations');
+                // The moon interface will be updated when the explore panel refreshes
             }
         }
 
@@ -755,6 +776,21 @@ export class TradingGame {
             id: commodity,
             quantity: this.getCommodityQuantity(commodity)
         })).filter(item => item.quantity > 0);
+    }
+
+    // Add commodity directly (for gifts, not purchases)
+    addCommodity(commodity, quantity) {
+        // Check inventory space - count total quantity, not types
+        const currentInventoryUsed = this.getInventoryUsed();
+        const wouldExceedCapacity = (currentInventoryUsed + quantity) > this.getInventoryCapacity();
+
+        if (wouldExceedCapacity) {
+            return false; // Insufficient inventory space
+        }
+
+        // Add the commodity
+        this.commodities[commodity] = (this.commodities[commodity] || 0) + quantity;
+        return true;
     }
 }
 

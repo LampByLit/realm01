@@ -1183,7 +1183,7 @@ export function createAllObjects(sceneManager, spacing, planeSize, planesGroup) 
         lineOpacity: 0.5,
         infoboxContent: 'SUPERNOVA\n\nStellar death explosion. Energy to power civilizations for eons.',
         isGreenlisted: false,
-        exploreContent: 'Exploring SUPERNOVA...\n\nA supernova is a powerful and luminous stellar explosion.'
+        exploreContent: ''
     });
 
     // Add Atlantis animated SVG in area 0b (top side of plane 0) on the outskirts

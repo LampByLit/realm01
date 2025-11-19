@@ -38,31 +38,24 @@ export class NPCManager {
         this.npcs.forEach(npc => {
             // Handle Greys hostility cycle
             if (npc.name === 'Greys') {
-                // Advance hostility cycle every turn (0-9)
-                npc.hostilityCycle = (npc.hostilityCycle + 1) % 10;
+                // Count turns since last agro period ended
+                npc.turnsSinceLastAgro++;
 
-                // Every 10th turn (when cycle reaches 0), become hostile for 2 turns
-                if (npc.hostilityCycle === 0 && !npc.isHostile) {
-                    console.log(`👽 Greys becoming hostile! Seeking player for 2 turns...`);
-                    npc.isHostile = true;
-                    npc.hostileTurnsRemaining = 2;
+                // After 10 turns, activate agro mode
+                if (npc.turnsSinceLastAgro >= 10 && !npc.agro) {
+                    console.log(`👽 Greys turning agro after ${npc.turnsSinceLastAgro} turns! Will stay agro until they attack once.`);
                     this.activateAgroMode(npc);
-                }
-
-                // Count down hostile turns
-                if (npc.isHostile) {
-                    npc.hostileTurnsRemaining--;
-                    if (npc.hostileTurnsRemaining <= 0) {
-                        console.log(`👽 Greys hostility period ended - returning to normal`);
-                        npc.isHostile = false;
-                        npc.agro = false; // Deactivate agro mode
-                    }
                 }
             }
 
             // Agro NPCs do NOT move during regular turn advancement - they wait for player skips
 
             // Normal movement logic for non-agro NPCs
+            // Track if this is the NPC's first advancement ever
+            if (npc.hasMoved === undefined) {
+                npc.hasMoved = false;
+            }
+
             npc.movementTimer++;
             let moveThreshold = 2; // Default for Martians and Venusians
             if (npc.name === 'Reptilians') {
@@ -70,18 +63,23 @@ export class NPCManager {
             } else if (npc.name === 'Pleiadians') {
                 moveThreshold = 1; // Pleiadians move every turn
             }
-            console.log(`⏰ ${npc.name} simultaneous turn timer: ${npc.movementTimer}/${moveThreshold} (at ${npc.currentLocation})`);
 
-            if (npc.movementTimer >= moveThreshold) {
+            // Force movement on first advancement, then use normal timer logic
+            const shouldMove = !npc.hasMoved || npc.movementTimer >= moveThreshold;
+
+            console.log(`⏰ ${npc.name} simultaneous turn timer: ${npc.movementTimer}/${moveThreshold} (at ${npc.currentLocation}) - firstMove: ${!npc.hasMoved}, shouldMove: ${shouldMove}`);
+
+            if (shouldMove) {
                 // Check for Pleiadian location-based encounter
                 if (npc.name === 'Pleiadians' &&
                     npc.currentLocation.toLowerCase() === this.tradingGame.currentLocation.toLowerCase()) {
                     console.log(`👽 Pleiadians: Co-located with player at ${npc.currentLocation}, initiating encounter then travel`);
                     this.triggerEncounter(npc);
                 }
-                console.log(`🚀 ${npc.name} simultaneous movement triggered!`);
+                console.log(`🚀 ${npc.name} simultaneous movement triggered! ${!npc.hasMoved ? '(FIRST MOVE)' : ''}`);
                 this.moveNPC(npc);
                 npc.movementTimer = 0; // Reset timer only for NPCs that actually moved
+                npc.hasMoved = true; // Mark that this NPC has made its first move
             }
         });
     }
@@ -187,9 +185,7 @@ export class NPCManager {
             travelEndPos: null,
             agro: false, // Agro state
             disableTraditionalEncounters: false, // Disable traditional encounters when agro
-            hostilityCycle: 0, // Tracks 0-9 cycle for hostility
-            isHostile: false, // Currently in hostile phase
-            hostileTurnsRemaining: 0 // Countdown for hostile turns
+            turnsSinceLastAgro: 0 // Turns since last agro period ended
         };
         this.npcs.push(greys);
     }

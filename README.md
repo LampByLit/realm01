@@ -1,6 +1,6 @@
-# Planes - 3D Art
+# EX LAMINÆ STRATUM
 
-A web-based 3D art project featuring stacked horizontal planes that slowly rotate in a black 3D environment.
+A web-based 3D space trading and combat simulation game featuring stacked horizontal planes in a cosmic environment.
 
 ## Setup
 
@@ -18,16 +18,20 @@ npm run dev
 
 ## Features
 
-- Stacked horizontal planes with spacing
-- Very slow rotation animation
-- Glowing, emissive materials for retro-futuristic aesthetic
-- Black background 3D environment
-- Responsive to window resizing
+- 3D space trading simulation with multiple commodities and locations
+- Real-time combat system with NPC factions
+- Complex achievement and scoring system
+- Dynamic inventory management with capacity systems
+- Interactive 3D environment with planets, galaxies, and cosmic phenomena
+- Turn-based gameplay with fuel consumption and travel mechanics
+- Banking and investment systems
+- Responsive design for desktop and mobile
 
 ## Technologies
 
-- Three.js for 3D rendering
+- Three.js for 3D rendering and game engine
 - Vite for development and building
+- Vanilla JavaScript for game logic
 
 
 

@@ -1,7 +1,7 @@
 {
-  "name": "planes-3d-art",
+  "name": "ex-laminae-stratum",
   "version": "1.0.0",
-  "description": "3D web art with stacked horizontal planes",
+  "description": "3D space trading and combat simulation game",
   "type": "module",
   "scripts": {
     "dev": "vite",

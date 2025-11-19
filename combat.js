@@ -1,4 +1,4 @@
-// combat.js - Combat system for EX LAMINÆ
+// combat.js - Combat system for EX LAMINÆ STRATUM
 import * as THREE from 'three';
 
 export class CombatManager {
@@ -168,6 +168,12 @@ export class CombatManager {
         document.getElementById('control-panel')?.classList.remove('open');
         document.getElementById('inventory-panel')?.classList.remove('open');
         document.getElementById('explore-panel')?.classList.remove('open');
+
+        // Hide infobox if open
+        const infoBox = document.getElementById('object-info-box');
+        if (infoBox && infoBox.classList.contains('show')) {
+            infoBox.classList.remove('show');
+        }
 
         // Hide all main menu toggles during combat
         document.getElementById('panel-toggle')?.classList.add('hidden');
@@ -421,7 +427,18 @@ export class CombatManager {
         } else {
             // Defeat - lose all inventory except body/soul/spirit/light, get 1 fuel
             this.handleDefeat();
-            this.activateAgroImmediately(npc); // Activate agro immediately (NPC survives)
+
+            // Special handling for Greys agro deactivation
+            if (npc.name === 'Greys' && npc.agro && isDefendMode) {
+                // Greys successfully attacked player - deactivate agro and reset turn counter
+                console.log(`👽 Greys successfully attacked player! Deactivating agro and resetting turn counter.`);
+                npc.agro = false;
+                npc.disableTraditionalEncounters = false;
+                npc.turnsSinceLastAgro = 0;
+            } else {
+                this.activateAgroImmediately(npc); // Activate agro immediately (NPC survives)
+            }
+
             this.showCombatResult('DEFEAT', `You were defeated by the ${npc.name}!`, false);
             // showCombatResult will handle ending combat after 5 seconds or user click
         }

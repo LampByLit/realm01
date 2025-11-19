@@ -6,72 +6,146 @@ export class InventoryManager {
             'body': {
                 name: 'Body',
                 plural: 'Bodies',
-                description: 'The physical vessel that contains your essence. A tangible form in the material realm.'
+                description: 'The physical vessel that contains your essence. A tangible form in the material realm.',
+                rarity: 'legendary'
             },
             'soul': {
                 name: 'Soul',
                 plural: 'Souls',
-                description: 'The eternal essence of your being. The core of consciousness that transcends physical form.'
+                description: 'The eternal essence of your being. The core of consciousness that transcends physical form.',
+                rarity: 'legendary'
             },
             'spirit': {
                 name: 'Spirit',
                 plural: 'Spirits',
-                description: 'The animating force that connects body and soul. The bridge between material and ethereal.'
+                description: 'The animating force that connects body and soul. The bridge between material and ethereal.',
+                rarity: 'legendary'
             },
             'light': {
                 name: 'Light',
                 plural: 'Light',
-                description: 'The pure essence that exists when body, spirit, and soul are absent. Takes no space and cannot be stacked.'
+                description: 'The pure essence that exists when body, spirit, and soul are absent. Takes no space and cannot be stacked.',
+                rarity: 'legendary'
             },
             'baby': {
                 name: 'Baby',
                 plural: 'Babies',
-                description: 'A small human child, innocent and pure.'
+                description: 'A small human child, innocent and pure.',
+                rarity: 'common'
             },
             'man': {
                 name: 'Man',
                 plural: 'Men',
-                description: 'A fully formed adult male human.'
+                description: 'A fully formed adult male human.',
+                rarity: 'common'
             },
             'woman': {
                 name: 'Woman',
                 plural: 'Women',
-                description: 'A fully formed adult female human.'
+                description: 'A fully formed adult female human.',
+                rarity: 'common'
             },
             'water': {
                 name: 'Water',
                 plural: 'Water',
-                description: 'The essence of water and fluidity. The flow of life and change.'
+                description: 'The essence of water and fluidity. The flow of life and change.',
+                rarity: 'uncommon'
+            },
+            'earth': {
+                name: 'Earth',
+                plural: 'Earth',
+                description: 'The essence of earth and stability. The foundation of material existence.',
+                rarity: 'uncommon'
+            },
+            'fire': {
+                name: 'Fire',
+                plural: 'Fire',
+                description: 'The essence of fire and transformation. The spark of creation and destruction.',
+                rarity: 'uncommon'
+            },
+            'wind': {
+                name: 'Wind',
+                plural: 'Wind',
+                description: 'The essence of wind and movement. The breath of change and freedom.',
+                rarity: 'uncommon'
+            },
+            'throne': {
+                name: 'Throne',
+                plural: 'Thrones',
+                description: 'The seat of ultimate power and authority. The pinnacle of ascension.',
+                rarity: 'legendary'
             },
             'ftl': {
                 name: 'FTL Drive',
                 plural: 'FTL Drives',
-                description: 'Faster-Than-Light propulsion system. Allows instantaneous travel across vast distances.'
+                description: 'Faster-Than-Light propulsion system. Allows instantaneous travel across vast distances.',
+                rarity: 'epic'
             },
             'weapons': {
                 name: 'Weapon',
                 plural: 'Weapons',
-                description: 'Weapons provide +1 Power, or can be irreversibly deployed for +1 slave/turn.'
+                description: 'Weapons provide +1 Power, or can be irreversibly deployed for +1 slave/turn.',
+                rarity: 'common'
             },
             'robot': {
                 name: 'Robot',
                 plural: 'Robots',
-                description: 'Robots provide +5 Inventory, or can be irreversibly deployed for +$100/turn.'
+                description: 'Robots provide +5 Inventory, or can be irreversibly deployed for +$100/turn.',
+                rarity: 'rare'
             },
             'merchant': {
                 name: 'Merchant',
                 plural: 'Merchants',
-                description: 'Merchants provide +15 Inventory, or can be irreversibly deployed for +$250/turn.'
+                description: 'Merchants provide +15 Inventory, or can be irreversibly deployed for +$250/turn.',
+                rarity: 'epic'
             },
             'army': {
                 name: 'Army',
                 plural: 'Armies',
-                description: 'Armies provide +5 Power, or can be irreversibly deployed for +5 slaves/turn.'
+                description: 'Armies provide +5 Power, or can be irreversibly deployed for +5 slaves/turn.',
+                rarity: 'rare'
             },
             'archon': {
                 name: 'Archon',
                 plural: 'Archons',
-                description: 'Archons provide +15 Inventory and +10 Power, or can be irreversibly deployed for +$500/turn and +5 slaves/turn.'
+                description: 'Archons provide +15 Inventory and +10 Power, or can be irreversibly deployed for +$500/turn and +5 slaves/turn.',
+                rarity: 'legendary'
+            },
+            'alpha': {
+                name: 'Alpha',
+                plural: 'Alphas',
+                description: 'First component of the Omega device. Deploy Omega when all three are collected.',
+                rarity: 'epic'
+            },
+            'beta': {
+                name: 'Beta',
+                plural: 'Betas',
+                description: 'Second component of the Omega device. Deploy Omega when all three are collected.',
+                rarity: 'epic'
+            },
+            'gamma': {
+                name: 'Gamma',
+                plural: 'Gammas',
+                description: 'Third component of the Omega device. Deploy Omega when all three are collected.',
+                rarity: 'epic'
+            },
+            'past': {
+                name: 'Past',
+                plural: 'Pasts',
+                description: 'A fragment of the past, containing memories of what was.',
+                rarity: 'rare'
+            },
+            'present': {
+                name: 'Present',
+                plural: 'Presents',
+                description: 'A moment of the present, holding the essence of now.',
+                rarity: 'rare'
+            },
+            'future': {
+                name: 'Future',
+                plural: 'Futures',
+                description: 'A glimpse of the future, revealing possibilities yet to come.',
+                rarity: 'rare'
             }
         };
         
@@ -227,6 +301,13 @@ export class InventoryManager {
     // Get inventory capacity used (light doesn't count)
     getUsedCapacity() {
         return this.items.filter(item => item.id !== 'light').length;
+    }
+
+    // Get a random commodity gift from supernova (ore, iron, or fuel)
+    getRandomSupernovaGift() {
+        const supernovaGifts = ['ore', 'iron', 'fuel'];
+        const randomIndex = Math.floor(Math.random() * supernovaGifts.length);
+        return supernovaGifts[randomIndex];
     }
 }
 
