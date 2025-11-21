@@ -2499,6 +2499,51 @@ window.addEventListener('click', onMouseClick);
 let currentPanelIndex = 0; // 0: console, 1: inventory, 2: explore
 
 window.addEventListener('keydown', (event) => {
+    // Debug logging for deployment troubleshooting
+    console.log('🔧 Key event detected:', event.key, 'Code:', event.code, 'Target:', event.target.tagName);
+
+    // Check if we're in a secure context (required for some keyboard APIs)
+    if (!window.isSecureContext) {
+        console.warn('⚠️ Not in secure context - keyboard events may be restricted');
+    }
+
+    // Check if focus is on an input element
+    if (event.target.tagName === 'INPUT' || event.target.tagName === 'TEXTAREA') {
+        console.log('📝 Key event on input element - allowing default behavior');
+        return; // Allow input elements to handle their own events
+    }
+
+    // Deployment-specific workarounds
+    // Check if we're in an iframe (common deployment issue)
+    if (window.self !== window.top) {
+        console.log('📱 Running in iframe - applying iframe-specific handling');
+        // In iframes, some browsers restrict keyboard events
+        // Try to ensure we have focus
+        window.focus();
+    }
+
+    // PWA/standalone mode detection
+    if (window.matchMedia('(display-mode: standalone)').matches ||
+        window.navigator.standalone === true) {
+        console.log('📱 Running in PWA/standalone mode');
+        // Some PWA modes have different keyboard handling
+    }
+
+    // Mobile detection and workarounds
+    const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+    if (isMobile) {
+        console.log('📱 Mobile device detected - keyboard behavior may differ');
+        // On mobile, ensure we're not in a virtual keyboard state that blocks events
+        if (document.activeElement && document.activeElement !== document.body) {
+            console.log('📝 Active element:', document.activeElement.tagName);
+        }
+    }
+    // Don't process hotkeys if an input element is focused
+    const activeElement = document.activeElement;
+    if (activeElement && (activeElement.tagName === 'INPUT' || activeElement.tagName === 'TEXTAREA' || activeElement.tagName === 'SELECT' || activeElement.contentEditable === 'true')) {
+        return; // Let the input element handle the key event
+    }
+
     if (event.key === 'Escape') {
         // Don't interfere with combat mode - let combat system handle escape
         if (window.combatManager && window.combatManager.inCombat) {
@@ -2526,7 +2571,8 @@ window.addEventListener('keydown', (event) => {
         // Close cheat modal if open
         hideCheatModal();
     } else if (event.key === 'u' || event.key === 'U') {
-        // Show cheat code modal
+        // Show cheat code modal - but check if we're in an environment where it might not work
+        console.log('🎮 U key pressed - attempting to show cheat modal');
         showCheatModal();
     } else if (event.key === 'z' || event.key === 'Z') {
         // Z key: Close info box, then open console panel
@@ -2705,6 +2751,48 @@ window.addEventListener('keydown', (event) => {
     }
 });
 
+// Fallback keyboard handler for deployment environments where window events might be blocked
+document.addEventListener('keydown', (event) => {
+    // Only handle if window listener didn't prevent default (meaning it didn't handle the event)
+    if (!event.defaultPrevented) {
+        console.log('🔄 Fallback key handler triggered for:', event.key);
+
+        // Handle the same keys as the window listener but as fallback
+        if (event.key === 'Escape') {
+            if (window.combatManager && window.combatManager.inCombat) {
+                return;
+            }
+            controlPanel.classList.remove('open');
+            inventoryPanel.classList.remove('open');
+            explorePanel.classList.remove('open');
+            panelToggle.classList.remove('hidden');
+            inventoryToggle.classList.remove('hidden');
+            exploreToggle.classList.remove('hidden');
+            hideInfoBox();
+            hideCheatModal();
+            if (inventoryDescription) {
+                inventoryDescription.textContent = '';
+            }
+        } else if (event.key === 'u' || event.key === 'U') {
+            showCheatModal();
+        }
+        // Add other critical hotkeys as fallback if needed
+    }
+});
+
+// Additional deployment safeguard: ensure we can always close modals
+window.addEventListener('keyup', (event) => {
+    // Emergency escape handler that works even if main handlers fail
+    if (event.key === 'Escape') {
+        console.log('🚨 Emergency escape handler triggered');
+        hideCheatModal();
+        // Force close any open panels
+        controlPanel.classList.remove('open');
+        inventoryPanel.classList.remove('open');
+        explorePanel.classList.remove('open');
+    }
+});
+
 // Cheat Code Modal Functions
 const cheatModal = document.getElementById('cheat-modal');
 const cheatInput = document.getElementById('cheat-input');
@@ -2712,14 +2800,35 @@ const cheatSubmit = document.getElementById('cheat-submit');
 const cheatCancel = document.getElementById('cheat-cancel');
 
 function showCheatModal() {
+    console.log('🎮 Opening cheat modal');
     cheatModal.classList.add('open');
     cheatInput.value = '';
-    cheatInput.focus();
+    // Only focus if we're not in a deployment environment that blocks focus
+    if (!window.matchMedia('(display-mode: standalone)').matches) {
+        try {
+            cheatInput.focus();
+        } catch (e) {
+            console.warn('⚠️ Could not focus cheat input:', e);
+        }
+    }
 }
 
 function hideCheatModal() {
+    console.log('🎮 Closing cheat modal');
     cheatModal.classList.remove('open');
     cheatInput.value = '';
+
+    // Ensure focus returns to the window/body to restore hotkeys
+    try {
+        // Try to focus the body element to restore window-level keyboard events
+        document.body.focus();
+        // Alternative: blur any focused element
+        if (document.activeElement && document.activeElement !== document.body) {
+            document.activeElement.blur();
+        }
+    } catch (e) {
+        console.warn('⚠️ Could not restore focus to body:', e);
+    }
 }
 
 // Handle cheat code submission
@@ -2757,13 +2866,38 @@ cheatSubmit.addEventListener('click', () => {
     }
 });
 
-cheatCancel.addEventListener('click', hideCheatModal);
+cheatCancel.addEventListener('click', () => {
+    console.log('🎮 Cheat modal cancelled via button');
+    hideCheatModal();
+});
 
 cheatInput.addEventListener('keypress', (e) => {
     if (e.key === 'Enter') {
+        console.log('🎮 Cheat code submitted via Enter key');
         cheatSubmit.click();
     }
 });
+
+// Additional safeguard: if user clicks outside modal, close it
+cheatModal.addEventListener('click', (e) => {
+    if (e.target === cheatModal) {
+        console.log('🎮 Cheat modal closed via outside click');
+        hideCheatModal();
+    }
+});
+
+// Deployment diagnostics and safeguards
+setInterval(() => {
+    // Periodic check for focus issues
+    const activeElement = document.activeElement;
+    if (activeElement && activeElement.tagName === 'INPUT' && !cheatModal.classList.contains('open')) {
+        console.warn('⚠️ Input element has focus but cheat modal is closed - potential focus issue');
+    }
+
+    // Log current state every 30 seconds for debugging
+    console.log('🔍 Game state check - Active element:', activeElement ? activeElement.tagName : 'body',
+                'Cheat modal open:', cheatModal.classList.contains('open'));
+}, 30000);
 
 // Handle window resize
 window.addEventListener('resize', () => {
