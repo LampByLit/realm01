@@ -44,7 +44,7 @@ export class NPCManager {
                 // After 10 turns, activate agro mode
                 if (npc.turnsSinceLastAgro >= 10 && !npc.agro) {
                     console.log(`👽 Greys turning agro after ${npc.turnsSinceLastAgro} turns! Will stay agro until they attack once.`);
-                    this.activateAgroMode(npc);
+                    window.combatManager.activateAgroMode(npc);
                 }
             }
 
@@ -1538,7 +1538,7 @@ export class NPCManager {
                         if (this.tradingGame.gaiaBH1Investment.active) {
                             const reptiliansNpc = this.npcs.find(npc => npc.name === 'Reptilians');
                             if (reptiliansNpc && !reptiliansNpc.agro) {
-                                this.activateAgroMode(reptiliansNpc);
+                                window.combatManager.activateAgroMode(reptiliansNpc);
                                 console.log('🐲 Reptilian agro triggered: Deposit account closed during active investment');
                             }
                         }
