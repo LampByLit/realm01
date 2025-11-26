@@ -740,9 +740,18 @@ export class NPCManager {
             availableScenarios.push(() => this.venusianNeutralScenario(npc));
             scenarioNames.push('Neutral');
         } else if (npc.name === 'Reptilians') {
-            // Reptilians only provide banking access - always available
-            availableScenarios.push(() => this.reptilianBankingScenario(npc));
-            scenarioNames.push('Banking Access');
+            // Reptilians have progressive encounters based on count
+            const encounterCount = this.getEncounterCount('Reptilians');
+            console.log(`🐲 Reptilians encounter #${encounterCount + 1}`);
+
+            if (encounterCount === 0) {
+                availableScenarios.push(() => this.reptiliansFirstEncounterScenario(npc));
+                scenarioNames.push('First Encounter');
+            } else {
+                // For subsequent encounters, provide banking access
+                availableScenarios.push(() => this.reptilianBankingScenario(npc));
+                scenarioNames.push('Banking Access');
+            }
         } else if (npc.name === 'Pleiadians') {
             // Pleiadians have progressive encounters based on count
             const encounterCount = this.getEncounterCount('Pleiadians');
@@ -1098,6 +1107,29 @@ export class NPCManager {
                 this.processEncounterQueue();
             }
         }, 30000);
+    }
+
+    reptiliansFirstEncounterScenario(npc) {
+        this.showNPCPopup(
+            'We invite you to visit Gaia BH1, our home planet.',
+            'Accept Invitation',
+            null,
+            () => {
+                // Accept invitation - permanently greenlist Gaia BH1
+                console.log('🐲 Reptilians: Setting Gaia BH1 greenlist to true');
+                localStorage.setItem('gaiaBH1Greenlisted', 'true');
+                console.log('🐲 Reptilians: localStorage value:', localStorage.getItem('gaiaBH1Greenlisted'));
+                this.incrementEncounterCount('Reptilians');
+
+                // Update UI if explore panel is visible
+                if (window.updateExplorePanel) {
+                    console.log('🐲 Reptilians: Updating explore panel');
+                    window.updateExplorePanel();
+                }
+            },
+            null,
+            npc
+        );
     }
 
     pleiadiansFirstEncounterScenario(npc) {

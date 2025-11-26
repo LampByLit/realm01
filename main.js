@@ -1911,6 +1911,16 @@ function isOnCurrentGreenlist(objectName, baseIsGreenlisted) {
         }
     }
 
+    // Gaia BH1 is permanently greenlisted after first Reptilian encounter
+    if (objectName && objectName.toLowerCase() === 'gaia bh1') {
+        const gaiaBH1Greenlisted = localStorage.getItem('gaiaBH1Greenlisted');
+        console.log('🐲 Greenlist check for Gaia BH1:', objectName, 'gaiaBH1Greenlisted:', gaiaBH1Greenlisted);
+        if (gaiaBH1Greenlisted === 'true') {
+            console.log('🐲 Gaia BH1 is greenlisted!');
+            return true;
+        }
+    }
+
     // Check for planets removed from greenlist due to agro mode
     if (objectName) {
         const removedFromGreenlist = localStorage.getItem(`${objectName}_removed_from_greenlist`) === 'true';
