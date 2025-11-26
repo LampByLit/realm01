@@ -2340,6 +2340,10 @@ function startTravel(destinationName) {
     travelState.endPos = endPos.clone();
     travelState.destinationName = destinationName;
 
+    // Calculate travel duration based on distance (minimum 2 seconds, plus 0.5 seconds per unit distance)
+    const distance = startPos.distanceTo(endPos);
+    travelState.duration = Math.max(2000, distance * 500); // milliseconds
+
     // Advance NPCs immediately so they travel simultaneously with player
     if (npcManager) {
         console.log('🚀 Advancing NPCs simultaneously with player travel start');

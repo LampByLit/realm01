@@ -697,7 +697,7 @@ export function createAllObjects(sceneManager, spacing, planeSize, planesGroup) 
         lineOpacity: 0.5,
         infoboxContent: 'PLEIADES\n\nSeven sisters cluster. Young fire stars born from same cosmic womb.',
         isGreenlisted: false,
-        exploreContent: 'Exploring PLEIADES...\n\nThe Pleiades is an open star cluster in the constellation Taurus.'
+        exploreContent: ''
     });
 
     // Add a test object in the top-left of area 2b - ELASTIC between planes 2 and 3
