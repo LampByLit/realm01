@@ -112,7 +112,8 @@ export class NPCManager {
             travelStartPos: null,
             travelEndPos: null,
             agro: false, // Agro state
-            disableTraditionalEncounters: false // Disable traditional encounters when agro
+            disableTraditionalEncounters: false, // Disable traditional encounters when agro
+            pendingDestination: null
         };
         this.npcs.push(martian);
     }
@@ -130,7 +131,8 @@ export class NPCManager {
             travelStartPos: null,
             travelEndPos: null,
             agro: false, // Agro state
-            disableTraditionalEncounters: false // Disable traditional encounters when agro
+            disableTraditionalEncounters: false, // Disable traditional encounters when agro
+            pendingDestination: null
         };
         this.npcs.push(venusian);
     }
@@ -148,7 +150,8 @@ export class NPCManager {
             travelStartPos: null,
             travelEndPos: null,
             agro: false, // Agro state
-            disableTraditionalEncounters: false // Disable traditional encounters when agro
+            disableTraditionalEncounters: false, // Disable traditional encounters when agro
+            pendingDestination: null
         };
         this.npcs.push(reptilian);
     }
@@ -166,7 +169,8 @@ export class NPCManager {
             travelStartPos: null,
             travelEndPos: null,
             agro: false, // Agro state
-            disableTraditionalEncounters: false // Disable traditional encounters when agro
+            disableTraditionalEncounters: false, // Disable traditional encounters when agro
+            pendingDestination: null
         };
         this.npcs.push(pleiadian);
     }
@@ -185,7 +189,8 @@ export class NPCManager {
             travelEndPos: null,
             agro: false, // Agro state
             disableTraditionalEncounters: false, // Disable traditional encounters when agro
-            turnsSinceLastAgro: 0 // Turns since last agro period ended
+            turnsSinceLastAgro: 0, // Turns since last agro period ended
+            pendingDestination: null
         };
         this.npcs.push(greys);
     }
@@ -519,6 +524,13 @@ export class NPCManager {
     }
 
     startNPCTravel(npc, destinationName) {
+        if (npc.isTraveling) {
+            npc.pendingDestination = destinationName;
+            console.log(`⏳ ${npc.name} is already traveling; queuing next destination: ${destinationName}`);
+            return;
+        }
+
+        npc.pendingDestination = null;
         const oldLocation = npc.currentLocation;
         npc.currentLocation = destinationName;
         npc.isTraveling = true;
@@ -1839,7 +1851,13 @@ export class NPCManager {
                     if (progress >= 1) {
                         npc.spaceship.visible = false;
                         npc.isTraveling = false;
-                        this.checkForEncounter(npc);
+                        if (npc.pendingDestination) {
+                            const nextDestination = npc.pendingDestination;
+                            npc.pendingDestination = null;
+                            this.startNPCTravel(npc, nextDestination);
+                        } else {
+                            this.checkForEncounter(npc);
+                        }
                     }
                 }
             }
