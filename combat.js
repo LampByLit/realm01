@@ -16,13 +16,15 @@ export class CombatManager {
         this.defendInterval = null;
         this.lastDefendTurn = -1; // Track last turn defend mode was triggered
         this.lastLocation = null; // Track location changes for screen updates
+        this.lastCombatNPCSnapshot = ''; // Keep track of the last NPC list shown
 
         // NPC power ranges (as specified)
         this.npcPowerRanges = {
             'Venusians': { min: 10, max: 50 },
             'Martians': { min: 20, max: 80 },
             'Reptilians': { min: 50, max: 200 },
-            'Pleiadians': { min: 500, max: 1000 }
+            'Pleiadians': { min: 500, max: 1000 },
+            'Greys': { min: 150, max: 400 }
         };
 
         // NPC booty rewards (as specified)
@@ -47,6 +49,10 @@ export class CombatManager {
             ],
             'Pleiadians': [
                 { type: 'commodity', id: 'ore', quantity: 1 }
+            ],
+            'Greys': [
+                { type: 'commodity', id: 'aura', quantity: 1 },
+                { type: 'money', amount: 20000 }
             ]
         };
 
@@ -225,16 +231,7 @@ export class CombatManager {
         // Start countdown
         this.defendCountdown = 10;
         this.updateDefendCountdown();
-
-        this.defendInterval = setInterval(() => {
-            this.defendCountdown--;
-            this.updateDefendCountdown();
-
-            if (this.defendCountdown <= 0) {
-                // Auto-attack when countdown reaches 0
-                this.executeAttack(npc, true); // true = auto-attack from defend mode
-            }
-        }, 1000);
+        this.scheduleDefendTick(npc);
 
         // Show combat panel with defend UI
         this.combatPanel.classList.add('open');
@@ -249,6 +246,24 @@ export class CombatManager {
         }
     }
 
+    scheduleDefendTick(npc) {
+        if (this.defendInterval) {
+            clearTimeout(this.defendInterval);
+        }
+
+        this.defendInterval = window.setTimeout(() => {
+            this.defendCountdown--;
+            this.updateDefendCountdown();
+
+            if (this.defendCountdown <= 0) {
+                this.defendInterval = null;
+                this.executeAttack(npc, true);
+            } else {
+                this.scheduleDefendTick(npc);
+            }
+        }, 1000);
+    }
+
     // Render main combat menu (NPC selection)
     renderCombatMenu() {
         this.combatContent.innerHTML = '';
@@ -258,11 +273,11 @@ export class CombatManager {
         title.textContent = 'SELECT TARGET';
         this.combatContent.appendChild(title);
 
-        // Get NPCs at current location
-        const currentLocation = this.tradingGame.currentLocation;
-        const availableNPCs = this.npcManager.npcs.filter(npc =>
-            npc.currentLocation.toLowerCase() === currentLocation.toLowerCase()
-        );
+        const currentLocation = this.tradingGame ? this.tradingGame.currentLocation : '';
+        const availableNPCs = this.getAvailableNPCs(currentLocation);
+        const snapshot = this.getAvailableNPCSnapshot(availableNPCs);
+        this.lastLocation = currentLocation;
+        this.lastCombatNPCSnapshot = snapshot;
 
         if (availableNPCs.length === 0) {
             const noTargets = document.createElement('div');
@@ -282,12 +297,43 @@ export class CombatManager {
         });
     }
 
+    // Get NPCs at a location (sorted for stable snapshots)
+    getAvailableNPCs(location) {
+        const targetLocation = (location || '').toLowerCase();
+        if (!targetLocation || !this.npcManager) return [];
+
+        return this.npcManager.npcs
+            .filter(npc => npc.currentLocation && npc.currentLocation.toLowerCase() === targetLocation)
+            .sort((a, b) => a.name.localeCompare(b.name));
+    }
+
+    getAvailableNPCSnapshot(npcs) {
+        if (!npcs || npcs.length === 0) return '';
+        return npcs
+            .map(npc => `${npc.name}:${npc.agro ? 'A' : 'N'}`)
+            .join('|');
+    }
+
+    getNPCPowerRangeText(npcName) {
+        const range = this.npcPowerRanges[npcName];
+        if (!range) return 'UNKNOWN';
+        if (range.min === range.max) {
+            return `${range.min}`;
+        }
+        return `${range.min} - ${range.max}`;
+    }
+
     // Update combat screen if it's currently open
     updateCombatScreen() {
         if (!this.inCombat || this.combatMode !== 'voluntary') return;
 
-        // Re-render the combat menu to show current NPCs
-        this.renderCombatMenu();
+        const currentLocation = this.tradingGame ? this.tradingGame.currentLocation : '';
+        const availableNPCs = this.getAvailableNPCs(currentLocation);
+        const snapshot = this.getAvailableNPCSnapshot(availableNPCs);
+
+        if (currentLocation !== this.lastLocation || snapshot !== this.lastCombatNPCSnapshot) {
+            this.renderCombatMenu();
+        }
     }
 
     // Render NPC submenu (power display + actions)
@@ -310,7 +356,7 @@ export class CombatManager {
         powerDisplay.className = 'combat-power-display';
 
         const playerPower = this.getPlayerPower();
-        const npcPower = this.getNPCPower(npc.name); // Get actual randomized power
+        const npcRangeText = this.getNPCPowerRangeText(npc.name);
 
         powerDisplay.innerHTML = `
             <div class="combat-power-item">
@@ -318,8 +364,8 @@ export class CombatManager {
                 <span class="combat-power-value">${playerPower}</span>
             </div>
             <div class="combat-power-item">
-                <span class="combat-power-label">ENEMY POWER:</span>
-                <span class="combat-power-value revealed">${npcPower}</span>
+                <span class="combat-power-label">ENEMY POWER RANGE:</span>
+                <span class="combat-power-value revealed">${npcRangeText}</span>
             </div>
         `;
         this.combatContent.appendChild(powerDisplay);
@@ -357,7 +403,7 @@ export class CombatManager {
         powerDisplay.className = 'combat-power-display';
 
         const playerPower = this.getPlayerPower();
-        const npcPower = this.getNPCPower(npc.name); // Show actual power in defend mode
+        const npcRangeText = this.getNPCPowerRangeText(npc.name); // Show range in defend mode
 
         powerDisplay.innerHTML = `
             <div class="combat-power-item">
@@ -365,8 +411,8 @@ export class CombatManager {
                 <span class="combat-power-value">${playerPower}</span>
             </div>
             <div class="combat-power-item">
-                <span class="combat-power-label">ENEMY POWER:</span>
-                <span class="combat-power-value revealed">${npcPower}</span>
+                <span class="combat-power-label">ENEMY POWER RANGE:</span>
+                <span class="combat-power-value revealed">${npcRangeText}</span>
             </div>
         `;
         this.combatContent.appendChild(powerDisplay);
@@ -414,7 +460,7 @@ export class CombatManager {
 
         // Stop defend countdown if active
         if (this.defendInterval) {
-            clearInterval(this.defendInterval);
+            clearTimeout(this.defendInterval);
             this.defendInterval = null;
         }
 
@@ -422,7 +468,7 @@ export class CombatManager {
             // Victory - get booty and remove NPC
             this.grantBooty(npc.name);
             this.removeNPC(npc);
-            this.showCombatResult('VICTORY', `You defeated the ${npc.name}!`, true);
+            this.showCombatResult('VICTORY', `You defeated the ${npc.name}! (Enemy power: ${npcPower})`, true);
             // showCombatResult will handle ending combat when user clicks continue
         } else {
             // Defeat - lose all inventory except body/soul/spirit/light, get 1 fuel
@@ -439,7 +485,7 @@ export class CombatManager {
                 this.activateAgroImmediately(npc); // Activate agro immediately (NPC survives)
             }
 
-            this.showCombatResult('DEFEAT', `You were defeated by the ${npc.name}!`, false);
+            this.showCombatResult('DEFEAT', `You were defeated by the ${npc.name}! (Enemy power: ${npcPower})`, false);
             // showCombatResult will handle ending combat after 5 seconds or user click
         }
     }
@@ -787,7 +833,7 @@ export class CombatManager {
 
         // Clear defend countdown
         if (this.defendInterval) {
-            clearInterval(this.defendInterval);
+            clearTimeout(this.defendInterval);
             this.defendInterval = null;
         }
 
@@ -822,13 +868,8 @@ export class CombatManager {
     // Update method (called each frame)
     update(deltaTime) {
         // Handle any ongoing combat animations or effects
-
-        // Check for location changes and update combat screen if needed
-        const currentLocation = this.tradingGame ? this.tradingGame.currentLocation : null;
-
-        if (currentLocation !== this.lastLocation && this.inCombat && this.combatMode === 'voluntary') {
+        if (this.inCombat && this.combatMode === 'voluntary') {
             this.updateCombatScreen();
-            this.lastLocation = currentLocation;
         }
     }
 
