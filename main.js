@@ -1698,12 +1698,6 @@ function animate() {
                 }
             }
 
-            // Update explore panel to show new commodities/prices after turn advancement
-            // (skip for getaway travels since no turn advancement occurred)
-            if (window.updateExplorePanel && !travelState.isGetaway) {
-                window.updateExplorePanel();
-            }
-
             currentLocation = destinationName; // Update current location
 
             // Update trading game current location (skip for getaway - already updated)
@@ -1715,22 +1709,26 @@ function animate() {
             npcManager.checkForPlayerArrivalEncounter(destinationName);
             
             // Hide spaceship immediately
-            if (travelState.spaceship) {
-                travelState.spaceship.visible = false;
-                // Remove from scene after hiding
+            const spaceshipToRemove = travelState.spaceship;
+            if (spaceshipToRemove) {
+                spaceshipToRemove.visible = false;
+                // Remove from scene after hiding (capture the reference so future travels are unaffected)
                 setTimeout(() => {
-                    if (travelState.spaceship && travelState.spaceship.parent) {
-                        travelState.spaceship.parent.remove(travelState.spaceship);
+                    if (spaceshipToRemove.parent) {
+                        spaceshipToRemove.parent.remove(spaceshipToRemove);
                     }
                 }, 1000);
             }
-            
+
             // Clear travel state
             travelState.spaceship = null;
             travelState.destinationName = null;
+            travelState.isGetaway = false;
             
             // Update explore panel when landing
-            updateExplorePanel();
+            if (window.updateExplorePanel) {
+                window.updateExplorePanel();
+            }
             
             // Refresh inventory to update light status if needed
             if (window.renderInventory) {
