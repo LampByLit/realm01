@@ -16,13 +16,15 @@ export class CombatManager {
         this.defendInterval = null;
         this.lastDefendTurn = -1; // Track last turn defend mode was triggered
         this.lastLocation = null; // Track location changes for screen updates
+        this.lastCombatNPCSnapshot = ''; // Keep track of the last NPC list shown
 
         // NPC power ranges (as specified)
         this.npcPowerRanges = {
             'Venusians': { min: 10, max: 50 },
             'Martians': { min: 20, max: 80 },
             'Reptilians': { min: 50, max: 200 },
-            'Pleiadians': { min: 500, max: 1000 }
+            'Pleiadians': { min: 500, max: 1000 },
+            'Greys': { min: 150, max: 400 }
         };
 
         // NPC booty rewards (as specified)
@@ -47,6 +49,10 @@ export class CombatManager {
             ],
             'Pleiadians': [
                 { type: 'commodity', id: 'ore', quantity: 1 }
+            ],
+            'Greys': [
+                { type: 'commodity', id: 'aura', quantity: 1 },
+                { type: 'money', amount: 20000 }
             ]
         };
 
@@ -258,11 +264,11 @@ export class CombatManager {
         title.textContent = 'SELECT TARGET';
         this.combatContent.appendChild(title);
 
-        // Get NPCs at current location
-        const currentLocation = this.tradingGame.currentLocation;
-        const availableNPCs = this.npcManager.npcs.filter(npc =>
-            npc.currentLocation.toLowerCase() === currentLocation.toLowerCase()
-        );
+        const currentLocation = this.tradingGame ? this.tradingGame.currentLocation : '';
+        const availableNPCs = this.getAvailableNPCs(currentLocation);
+        const snapshot = this.getAvailableNPCSnapshot(availableNPCs);
+        this.lastLocation = currentLocation;
+        this.lastCombatNPCSnapshot = snapshot;
 
         if (availableNPCs.length === 0) {
             const noTargets = document.createElement('div');
@@ -282,12 +288,34 @@ export class CombatManager {
         });
     }
 
+    // Get NPCs at a location (sorted for stable snapshots)
+    getAvailableNPCs(location) {
+        const targetLocation = (location || '').toLowerCase();
+        if (!targetLocation || !this.npcManager) return [];
+
+        return this.npcManager.npcs
+            .filter(npc => npc.currentLocation && npc.currentLocation.toLowerCase() === targetLocation)
+            .sort((a, b) => a.name.localeCompare(b.name));
+    }
+
+    getAvailableNPCSnapshot(npcs) {
+        if (!npcs || npcs.length === 0) return '';
+        return npcs
+            .map(npc => `${npc.name}:${npc.agro ? 'A' : 'N'}`)
+            .join('|');
+    }
+
     // Update combat screen if it's currently open
     updateCombatScreen() {
         if (!this.inCombat || this.combatMode !== 'voluntary') return;
 
-        // Re-render the combat menu to show current NPCs
-        this.renderCombatMenu();
+        const currentLocation = this.tradingGame ? this.tradingGame.currentLocation : '';
+        const availableNPCs = this.getAvailableNPCs(currentLocation);
+        const snapshot = this.getAvailableNPCSnapshot(availableNPCs);
+
+        if (currentLocation !== this.lastLocation || snapshot !== this.lastCombatNPCSnapshot) {
+            this.renderCombatMenu();
+        }
     }
 
     // Render NPC submenu (power display + actions)
@@ -822,13 +850,8 @@ export class CombatManager {
     // Update method (called each frame)
     update(deltaTime) {
         // Handle any ongoing combat animations or effects
-
-        // Check for location changes and update combat screen if needed
-        const currentLocation = this.tradingGame ? this.tradingGame.currentLocation : null;
-
-        if (currentLocation !== this.lastLocation && this.inCombat && this.combatMode === 'voluntary') {
+        if (this.inCombat && this.combatMode === 'voluntary') {
             this.updateCombatScreen();
-            this.lastLocation = currentLocation;
         }
     }
 
