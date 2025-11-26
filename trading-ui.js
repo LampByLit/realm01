@@ -88,15 +88,8 @@ export class TradingUI {
         
         // Get available commodities at current location
         const availableCommodities = tradingGame.getAvailableCommodities(currentLocation);
-        
+
         if (availableCommodities.length === 0) {
-            const noCommodities = document.createElement('p');
-            noCommodities.textContent = 'No commodities available at this location.';
-            noCommodities.style.fontFamily = 'var(--font-primary)';
-            noCommodities.style.fontSize = '0.75rem';
-            noCommodities.style.color = 'var(--color--foreground)';
-            noCommodities.style.opacity = '0.7';
-            tradingSection.appendChild(noCommodities);
             return tradingSection;
         }
         

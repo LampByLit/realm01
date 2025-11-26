@@ -1698,12 +1698,6 @@ function animate() {
                 }
             }
 
-            // Update explore panel to show new commodities/prices after turn advancement
-            // (skip for getaway travels since no turn advancement occurred)
-            if (window.updateExplorePanel && !travelState.isGetaway) {
-                window.updateExplorePanel();
-            }
-
             currentLocation = destinationName; // Update current location
 
             // Update trading game current location (skip for getaway - already updated)
@@ -1715,22 +1709,26 @@ function animate() {
             npcManager.checkForPlayerArrivalEncounter(destinationName);
             
             // Hide spaceship immediately
-            if (travelState.spaceship) {
-                travelState.spaceship.visible = false;
-                // Remove from scene after hiding
+            const spaceshipToRemove = travelState.spaceship;
+            if (spaceshipToRemove) {
+                spaceshipToRemove.visible = false;
+                // Remove from scene after hiding (capture the reference so future travels are unaffected)
                 setTimeout(() => {
-                    if (travelState.spaceship && travelState.spaceship.parent) {
-                        travelState.spaceship.parent.remove(travelState.spaceship);
+                    if (spaceshipToRemove.parent) {
+                        spaceshipToRemove.parent.remove(spaceshipToRemove);
                     }
                 }, 1000);
             }
-            
+
             // Clear travel state
             travelState.spaceship = null;
             travelState.destinationName = null;
+            travelState.isGetaway = false;
             
             // Update explore panel when landing
-            updateExplorePanel();
+            if (window.updateExplorePanel) {
+                window.updateExplorePanel();
+            }
             
             // Refresh inventory to update light status if needed
             if (window.renderInventory) {
@@ -1909,6 +1907,16 @@ function isOnCurrentGreenlist(objectName, baseIsGreenlisted) {
         console.log('🟢 Greenlist check for Pleiades:', objectName, 'pleiadesGreenlisted:', pleiadesGreenlisted);
         if (pleiadesGreenlisted === 'true') {
             console.log('🟢 Pleiades is greenlisted!');
+            return true;
+        }
+    }
+
+    // Gaia BH1 is permanently greenlisted after first Reptilian encounter
+    if (objectName && objectName.toLowerCase() === 'gaia bh1') {
+        const gaiaBH1Greenlisted = localStorage.getItem('gaiaBH1Greenlisted');
+        console.log('🐲 Greenlist check for Gaia BH1:', objectName, 'gaiaBH1Greenlisted:', gaiaBH1Greenlisted);
+        if (gaiaBH1Greenlisted === 'true') {
+            console.log('🐲 Gaia BH1 is greenlisted!');
             return true;
         }
     }
@@ -2339,6 +2347,10 @@ function startTravel(destinationName) {
     travelState.startPos = startPos.clone();
     travelState.endPos = endPos.clone();
     travelState.destinationName = destinationName;
+
+    // Calculate travel duration based on distance (minimum 2 seconds, plus 0.5 seconds per unit distance)
+    const distance = startPos.distanceTo(endPos);
+    travelState.duration = Math.max(2000, distance * 500); // milliseconds
 
     // Advance NPCs immediately so they travel simultaneously with player
     if (npcManager) {
