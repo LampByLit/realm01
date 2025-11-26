@@ -231,16 +231,7 @@ export class CombatManager {
         // Start countdown
         this.defendCountdown = 10;
         this.updateDefendCountdown();
-
-        this.defendInterval = setInterval(() => {
-            this.defendCountdown--;
-            this.updateDefendCountdown();
-
-            if (this.defendCountdown <= 0) {
-                // Auto-attack when countdown reaches 0
-                this.executeAttack(npc, true); // true = auto-attack from defend mode
-            }
-        }, 1000);
+        this.scheduleDefendTick(npc);
 
         // Show combat panel with defend UI
         this.combatPanel.classList.add('open');
@@ -253,6 +244,24 @@ export class CombatManager {
         if (countdownEl) {
             countdownEl.textContent = this.defendCountdown;
         }
+    }
+
+    scheduleDefendTick(npc) {
+        if (this.defendInterval) {
+            clearTimeout(this.defendInterval);
+        }
+
+        this.defendInterval = window.setTimeout(() => {
+            this.defendCountdown--;
+            this.updateDefendCountdown();
+
+            if (this.defendCountdown <= 0) {
+                this.defendInterval = null;
+                this.executeAttack(npc, true);
+            } else {
+                this.scheduleDefendTick(npc);
+            }
+        }, 1000);
     }
 
     // Render main combat menu (NPC selection)
@@ -305,6 +314,15 @@ export class CombatManager {
             .join('|');
     }
 
+    getNPCPowerRangeText(npcName) {
+        const range = this.npcPowerRanges[npcName];
+        if (!range) return 'UNKNOWN';
+        if (range.min === range.max) {
+            return `${range.min}`;
+        }
+        return `${range.min} - ${range.max}`;
+    }
+
     // Update combat screen if it's currently open
     updateCombatScreen() {
         if (!this.inCombat || this.combatMode !== 'voluntary') return;
@@ -338,7 +356,7 @@ export class CombatManager {
         powerDisplay.className = 'combat-power-display';
 
         const playerPower = this.getPlayerPower();
-        const npcPower = this.getNPCPower(npc.name); // Get actual randomized power
+        const npcRangeText = this.getNPCPowerRangeText(npc.name);
 
         powerDisplay.innerHTML = `
             <div class="combat-power-item">
@@ -346,8 +364,8 @@ export class CombatManager {
                 <span class="combat-power-value">${playerPower}</span>
             </div>
             <div class="combat-power-item">
-                <span class="combat-power-label">ENEMY POWER:</span>
-                <span class="combat-power-value revealed">${npcPower}</span>
+                <span class="combat-power-label">ENEMY POWER RANGE:</span>
+                <span class="combat-power-value revealed">${npcRangeText}</span>
             </div>
         `;
         this.combatContent.appendChild(powerDisplay);
@@ -385,7 +403,7 @@ export class CombatManager {
         powerDisplay.className = 'combat-power-display';
 
         const playerPower = this.getPlayerPower();
-        const npcPower = this.getNPCPower(npc.name); // Show actual power in defend mode
+        const npcRangeText = this.getNPCPowerRangeText(npc.name); // Show range in defend mode
 
         powerDisplay.innerHTML = `
             <div class="combat-power-item">
@@ -393,8 +411,8 @@ export class CombatManager {
                 <span class="combat-power-value">${playerPower}</span>
             </div>
             <div class="combat-power-item">
-                <span class="combat-power-label">ENEMY POWER:</span>
-                <span class="combat-power-value revealed">${npcPower}</span>
+                <span class="combat-power-label">ENEMY POWER RANGE:</span>
+                <span class="combat-power-value revealed">${npcRangeText}</span>
             </div>
         `;
         this.combatContent.appendChild(powerDisplay);
@@ -442,7 +460,7 @@ export class CombatManager {
 
         // Stop defend countdown if active
         if (this.defendInterval) {
-            clearInterval(this.defendInterval);
+            clearTimeout(this.defendInterval);
             this.defendInterval = null;
         }
 
@@ -450,7 +468,7 @@ export class CombatManager {
             // Victory - get booty and remove NPC
             this.grantBooty(npc.name);
             this.removeNPC(npc);
-            this.showCombatResult('VICTORY', `You defeated the ${npc.name}!`, true);
+            this.showCombatResult('VICTORY', `You defeated the ${npc.name}! (Enemy power: ${npcPower})`, true);
             // showCombatResult will handle ending combat when user clicks continue
         } else {
             // Defeat - lose all inventory except body/soul/spirit/light, get 1 fuel
@@ -467,7 +485,7 @@ export class CombatManager {
                 this.activateAgroImmediately(npc); // Activate agro immediately (NPC survives)
             }
 
-            this.showCombatResult('DEFEAT', `You were defeated by the ${npc.name}!`, false);
+            this.showCombatResult('DEFEAT', `You were defeated by the ${npc.name}! (Enemy power: ${npcPower})`, false);
             // showCombatResult will handle ending combat after 5 seconds or user click
         }
     }
@@ -815,7 +833,7 @@ export class CombatManager {
 
         // Clear defend countdown
         if (this.defendInterval) {
-            clearInterval(this.defendInterval);
+            clearTimeout(this.defendInterval);
             this.defendInterval = null;
         }
 
